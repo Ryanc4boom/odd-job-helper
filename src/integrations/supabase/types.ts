@@ -14,51 +14,150 @@ export type Database = {
   }
   public: {
     Tables: {
+      job_requests: {
+        Row: {
+          created_at: string
+          doer_id: string
+          id: string
+          job_id: string
+          message: string | null
+          poster_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doer_id: string
+          id?: string
+          job_id: string
+          message?: string | null
+          poster_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doer_id?: string
+          id?: string
+          job_id?: string
+          message?: string | null
+          poster_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
+          accepted_doer_id: string | null
+          address_exact: string | null
           budget: number
           category: Database["public"]["Enums"]["job_category"]
           created_at: string
           description: string
           doer_id: string | null
+          exact_lat: number | null
+          exact_lng: number | null
           id: string
           location_lat: number | null
           location_lng: number | null
           location_text: string | null
           poster_id: string
+          schedule_window: string
+          scheduled_for: string | null
           status: Database["public"]["Enums"]["job_status"]
           title: string
           updated_at: string
         }
         Insert: {
+          accepted_doer_id?: string | null
+          address_exact?: string | null
           budget?: number
           category?: Database["public"]["Enums"]["job_category"]
           created_at?: string
           description: string
           doer_id?: string | null
+          exact_lat?: number | null
+          exact_lng?: number | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id: string
+          schedule_window?: string
+          scheduled_for?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title: string
           updated_at?: string
         }
         Update: {
+          accepted_doer_id?: string | null
+          address_exact?: string | null
           budget?: number
           category?: Database["public"]["Enums"]["job_category"]
           created_at?: string
           description?: string
           doer_id?: string | null
+          exact_lat?: number | null
+          exact_lng?: number | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id?: string
+          schedule_window?: string
+          scheduled_for?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          payload: Json
+          read_at: string | null
+          recipient_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          read_at?: string | null
+          recipient_id?: string
+          title?: string
+          type?: string
         }
         Relationships: []
       }
@@ -131,6 +230,13 @@ export type Database = {
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ratings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -156,9 +262,73 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      jobs_public: {
+        Row: {
+          accepted_doer_id: string | null
+          budget: number | null
+          category: Database["public"]["Enums"]["job_category"] | null
+          created_at: string | null
+          description: string | null
+          doer_id: string | null
+          id: string | null
+          location_lat: number | null
+          location_lng: number | null
+          location_text: string | null
+          poster_id: string | null
+          schedule_window: string | null
+          scheduled_for: string | null
+          status: Database["public"]["Enums"]["job_status"] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_doer_id?: string | null
+          budget?: number | null
+          category?: Database["public"]["Enums"]["job_category"] | null
+          created_at?: string | null
+          description?: string | null
+          doer_id?: string | null
+          id?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          location_text?: string | null
+          poster_id?: string | null
+          schedule_window?: string | null
+          scheduled_for?: string | null
+          status?: Database["public"]["Enums"]["job_status"] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_doer_id?: string | null
+          budget?: number | null
+          category?: Database["public"]["Enums"]["job_category"] | null
+          created_at?: string | null
+          description?: string | null
+          doer_id?: string | null
+          id?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          location_text?: string | null
+          poster_id?: string | null
+          schedule_window?: string | null
+          scheduled_for?: string | null
+          status?: Database["public"]["Enums"]["job_status"] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_job_exact_location: {
+        Args: { _job_id: string }
+        Returns: {
+          address_exact: string
+          exact_lat: number
+          exact_lng: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
