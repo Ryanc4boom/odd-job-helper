@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
 import PostJob from "./pages/PostJob.tsx";
 import Feed from "./pages/Feed.tsx";
+import JobDetail from "./pages/JobDetail.tsx";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/post" element={<PostJob />} />
           <Route path="/feed" element={<Feed />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
