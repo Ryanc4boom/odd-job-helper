@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TrustBadge } from "@/components/TrustBadge";
+import TrustBadge from "@/components/TrustBadge";
 import { toast } from "sonner";
 import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
