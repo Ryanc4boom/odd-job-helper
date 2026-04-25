@@ -163,34 +163,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          age_range: string | null
           avatar_url: string | null
           bio: string | null
           created_at: string
           display_name: string | null
           id: string
+          is_verified: boolean
           jobs_completed: number
           trust_grade: Database["public"]["Enums"]["trust_grade"]
           updated_at: string
+          verification_id: string | null
+          verified_at: string | null
         }
         Insert: {
+          age_range?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id: string
+          is_verified?: boolean
           jobs_completed?: number
           trust_grade?: Database["public"]["Enums"]["trust_grade"]
           updated_at?: string
+          verification_id?: string | null
+          verified_at?: string | null
         }
         Update: {
+          age_range?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
+          is_verified?: boolean
           jobs_completed?: number
           trust_grade?: Database["public"]["Enums"]["trust_grade"]
           updated_at?: string
+          verification_id?: string | null
+          verified_at?: string | null
         }
         Relationships: []
       }

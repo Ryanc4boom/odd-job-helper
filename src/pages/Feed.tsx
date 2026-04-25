@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,7 +54,7 @@ export default function Feed() {
   }, [jobs]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24 md:pb-0">
       <Header />
       <div className="container py-8">
         <div className="mb-6 flex items-end justify-between gap-4">
@@ -176,6 +177,7 @@ export default function Feed() {
           </TabsContent>
         </Tabs>
       </div>
+      <BottomNav />
     </div>
   );
 }
