@@ -26,10 +26,11 @@ export default function Header() {
         <nav className="flex items-center gap-2">
           {user ? (
             <>
-              <Link to="/feed" className={buttonVariants({ variant: "ghost" })}>Feed</Link>
-              <Link to="/post" className={buttonVariants({ variant: "ghost" })}>Post a job</Link>
+              <Link to="/feed" className={`${buttonVariants({ variant: "ghost" })} hidden md:inline-flex`}>Find Jobs</Link>
+              <Link to="/post" className={`${buttonVariants({ variant: "ghost" })} hidden md:inline-flex`}>Post a Job</Link>
+              <Link to="/account" className={`${buttonVariants({ variant: "ghost" })} hidden md:inline-flex`}>Account</Link>
               <NotificationBell />
-              <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
+              <Button variant="ghost" size="icon" onClick={signOut} title="Sign out" className="hidden md:inline-flex">
                 <LogOut className="h-4 w-4" />
               </Button>
             </>
