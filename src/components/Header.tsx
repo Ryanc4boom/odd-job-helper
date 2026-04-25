@@ -3,6 +3,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Hammer, LogOut } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Header() {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ export default function Header() {
             <>
               <Link to="/feed" className={buttonVariants({ variant: "ghost" })}>Feed</Link>
               <Link to="/post" className={buttonVariants({ variant: "ghost" })}>Post a job</Link>
+              <NotificationBell />
               <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
                 <LogOut className="h-4 w-4" />
               </Button>
