@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Hammer, LogOut } from "lucide-react";
@@ -25,16 +25,16 @@ export default function Header() {
         <nav className="flex items-center gap-2">
           {user ? (
             <>
-              <Button variant="ghost" asChild><Link to="/feed">Feed</Link></Button>
-              <Button variant="ghost" asChild><Link to="/post">Post a job</Link></Button>
+              <Link to="/feed" className={buttonVariants({ variant: "ghost" })}>Feed</Link>
+              <Link to="/post" className={buttonVariants({ variant: "ghost" })}>Post a job</Link>
               <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
                 <LogOut className="h-4 w-4" />
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild><Link to="/auth">Sign in</Link></Button>
-              <Button variant="default" asChild><Link to="/auth">Get started</Link></Button>
+              <Link to="/auth" className={buttonVariants({ variant: "ghost" })}>Sign in</Link>
+              <Link to="/auth" className={buttonVariants({ variant: "default" })}>Get started</Link>
             </>
           )}
         </nav>
