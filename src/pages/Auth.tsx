@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,18 +45,30 @@ export default function Auth() {
         navigate("/feed");
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Something went wrong");
+      const msg = String(err?.message ?? "");
+      if (msg.toLowerCase().includes("failed to fetch")) {
+        toast.error("Network blocked in preview. Try the published URL.");
+      } else {
+        toast.error(msg || "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const google = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/feed` },
-    });
-    if (error) toast.error(error.message);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/feed`,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Google sign-in failed");
+        return;
+      }
+      if (!result.redirected) navigate("/feed");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Google sign-in failed");
+    }
   };
 
   return (
