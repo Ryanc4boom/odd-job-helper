@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -8,10 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { categoryMeta, CATEGORIES, type JobCategory } from "@/lib/categories";
 import type { Job } from "@/lib/types";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapPin, DollarSign, Plus } from "lucide-react";
+import { MapPin, DollarSign, Plus, Clock, Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function buildIcon(category: JobCategory) {
   const meta = categoryMeta(category);
@@ -32,7 +35,8 @@ export default function Feed() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("jobs").select("*").eq("status", "open").order("created_at", { ascending: false })
+    // Use the public view that hides exact coordinates and address
+    supabase.from("jobs_public" as any).select("*").eq("status", "open").order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (error) console.error(error);
         setJobs((data as any as Job[]) ?? []);
@@ -58,8 +62,16 @@ export default function Feed() {
             <p className="mt-2 text-muted-foreground">Lend a hand or find someone who can.</p>
           </div>
           <Button asChild className="rounded-2xl shadow-soft" size="lg">
-            <a href="/post"><Plus className="mr-1 h-4 w-4" />Post a job</a>
+            <Link to="/post"><Plus className="mr-1 h-4 w-4" />Post a job</Link>
           </Button>
+        </div>
+
+        {/* Worker incentive */}
+        <div className="mb-6 flex items-start gap-3 rounded-2xl bg-accent-soft p-4 text-sm">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground font-extrabold">A</span>
+          <p className="text-accent-foreground/90">
+            <span className="font-bold">Your Trust Grade and profile are shared with clients</span> to help them choose you — do a great job to keep your grade high!
+          </p>
         </div>
 
         <Tabs defaultValue="list">
@@ -75,7 +87,7 @@ export default function Feed() {
               <Card className="rounded-3xl p-12 text-center">
                 <p className="text-lg font-bold">No jobs yet</p>
                 <p className="mt-1 text-muted-foreground">Be the first to post one!</p>
-                <Button asChild className="mt-4 rounded-2xl"><a href="/post">Post a job</a></Button>
+                <Button asChild className="mt-4 rounded-2xl"><Link to="/post">Post a job</Link></Button>
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -83,7 +95,7 @@ export default function Feed() {
                   const meta = categoryMeta(job.category);
                   const Icon = meta.icon;
                   return (
-                    <Card key={job.id} className="group rounded-3xl border-border/60 p-6 shadow-card transition-smooth hover:-translate-y-1 hover:shadow-soft">
+                    <Card key={job.id} className="group flex flex-col rounded-3xl border-border/60 p-6 shadow-card transition-smooth hover:-translate-y-1 hover:shadow-soft">
                       <div className="flex items-start justify-between">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${meta.color}1a` }}>
                           <Icon className="h-6 w-6" style={{ color: meta.color }} />
@@ -94,12 +106,25 @@ export default function Feed() {
                       </div>
                       <h3 className="mt-4 font-extrabold leading-tight">{job.title}</h3>
                       <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
-                      {job.location_text && (
-                        <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />{job.location_text}
-                        </p>
-                      )}
-                      <Button variant="outline" className="mt-4 w-full rounded-2xl" disabled>I can help (soon)</Button>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", scheduleBadgeStyle(job.schedule_window))}>
+                          <Clock className="h-3 w-3" />{formatSchedule(job.scheduled_for, job.schedule_window)}
+                        </span>
+                        {job.location_text && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />{job.location_text}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Lock className="h-3 w-3" /> Exact address shared after acceptance
+                      </p>
+
+                      <Button asChild className="mt-4 h-12 w-full rounded-2xl text-base">
+                        <Link to={`/jobs/${job.id}`}>View & request</Link>
+                      </Button>
                     </Card>
                   );
                 })}
@@ -114,18 +139,33 @@ export default function Feed() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {jobs.filter((j) => j.location_lat && j.location_lng).map((j) => (
-                  <Marker key={j.id} position={[j.location_lat!, j.location_lng!]} icon={buildIcon(j.category)}>
-                    <Popup>
-                      <div className="font-sans">
-                        <p className="font-extrabold">{j.title}</p>
-                        <p className="text-xs text-muted-foreground">${Number(j.budget).toFixed(0)} · {categoryMeta(j.category).label}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
+                {jobs.filter((j) => j.location_lat && j.location_lng).map((j) => {
+                  const meta = categoryMeta(j.category);
+                  return (
+                    <div key={j.id}>
+                      <Circle
+                        center={[j.location_lat!, j.location_lng!]}
+                        radius={500}
+                        pathOptions={{ color: meta.color, fillColor: meta.color, fillOpacity: 0.15, weight: 2 }}
+                      />
+                      <Marker position={[j.location_lat!, j.location_lng!]} icon={buildIcon(j.category)}>
+                        <Popup>
+                          <div className="font-sans">
+                            <p className="font-extrabold">{j.title}</p>
+                            <p className="text-xs text-muted-foreground">${Number(j.budget).toFixed(0)} · {meta.label}</p>
+                            <p className="mt-1 text-[11px] italic text-muted-foreground">Approximate area — exact address shared after acceptance</p>
+                            <Link to={`/jobs/${j.id}`} className="mt-2 inline-block text-xs font-bold text-primary underline">View & request →</Link>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </div>
+                  );
+                })}
               </MapContainer>
             </div>
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" /> For privacy, jobs show a ~500m neighborhood circle — never an exact address.
+            </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {CATEGORIES.map(({ value, label, icon: Icon, color }) => (
                 <span key={value} className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-semibold shadow-card">
