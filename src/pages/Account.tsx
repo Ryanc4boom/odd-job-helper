@@ -243,8 +243,8 @@ export default function Account() {
                   <p className="mt-1 text-sm leading-snug text-muted-foreground text-pretty">
                     Verify your identity to unlock jobs and earn a Verified Neighbor badge — it keeps our community safe.
                   </p>
-                  <div className="mt-4 flex justify-center">
-                    <Button onClick={startVerify} className="h-12 w-full rounded-2xl text-base">
+                  <div className="w-full flex justify-center mt-6">
+                    <Button onClick={startVerify} className="h-12 rounded-2xl text-base px-8">
                       <ShieldCheck className="mr-1 h-4 w-4" /> Verify Identity to Start Working
                     </Button>
                   </div>
