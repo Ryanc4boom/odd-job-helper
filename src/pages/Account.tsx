@@ -269,9 +269,16 @@ export default function Account() {
                     <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
                     {profile.is_pro_helper && <ProBadge compact />}
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <TrustBadge grade={profile.trust_grade} />
                     <span className="text-xs text-muted-foreground">{profile.jobs_completed} jobs done</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <StarRating
+                      score={ratingStats.avg}
+                      count={ratingStats.count}
+                      emptyLabel={profile.jobs_completed === 0 ? "New Helper" : "No ratings yet"}
+                    />
                   </div>
                 </div>
               </div>
