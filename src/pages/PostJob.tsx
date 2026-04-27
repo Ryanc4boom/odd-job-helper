@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,9 +18,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CATEGORIES } from "@/lib/categories";
 import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } from "@/lib/schedule";
+import { DURATION_OPTIONS } from "@/lib/duration";
 import { geocodeDemo, fuzzCoord } from "@/lib/location";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap } from "lucide-react";
+import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -29,6 +31,7 @@ const schema = z.object({
   budget: z.coerce.number().min(0).max(10000),
   location_text: z.string().trim().max(120).optional(),
   address_exact: z.string().trim().min(5, "Add an exact street address — only revealed to your accepted helper").max(200),
+  estimated_duration: z.string().min(1, "Estimate how long the job should take"),
 });
 
 export default function PostJob() {
