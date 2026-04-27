@@ -19,8 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import TrustBadge from "@/components/TrustBadge";
+import ProBadge from "@/components/ProBadge";
 import { toast } from "sonner";
-import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2 } from "lucide-react";
+import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import { categoryMeta } from "@/lib/categories";
@@ -33,6 +34,7 @@ type Profile = {
   trust_grade: "A" | "B" | "C" | "D" | "F";
   jobs_completed: number;
   is_verified: boolean;
+  is_pro_helper: boolean;
   verification_id: string | null;
   verified_at: string | null;
 };
