@@ -252,7 +252,10 @@ export default function Account() {
                   {(profile.display_name ?? user?.email ?? "?").charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
+                    {profile.is_pro_helper && <ProBadge compact />}
+                  </div>
                   <div className="mt-1 flex items-center gap-2">
                     <TrustBadge grade={profile.trust_grade} />
                     <span className="text-xs text-muted-foreground">{profile.jobs_completed} jobs done</span>
