@@ -133,6 +133,15 @@ export default function Feed() {
                       </div>
                       <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
 
+                      <div className="mt-2">
+                        <StarRating
+                          score={posterRatings[job.poster_id]?.avg ?? null}
+                          count={posterRatings[job.poster_id]?.count ?? 0}
+                          emptyLabel="New poster"
+                          compact
+                        />
+                      </div>
+
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", scheduleBadgeStyle(job.schedule_window))}>
                           <Clock className="h-3 w-3" />{formatSchedule(job.scheduled_for, job.schedule_window)}
