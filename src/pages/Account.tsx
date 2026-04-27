@@ -182,7 +182,7 @@ export default function Account() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
       <Header />
-      <div className="container max-w-3xl py-8">
+      <div className="max-w-3xl px-4 py-8 ml-0 mr-auto">
         <div className="mb-6 flex items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold md:text-4xl">Your account</h1>
