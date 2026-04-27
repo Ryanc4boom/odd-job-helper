@@ -48,7 +48,12 @@ export default function PostJob() {
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
     location_text: "", address_exact: "",
+    estimated_duration: "",
   });
+  const [toolsProvided, setToolsProvided] = useState(false);
+  const [heavyLifting, setHeavyLifting] = useState(false);
+  const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
+  const [proOnly, setProOnly] = useState(false);
 
   const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
   const isCustom = preset.kind === "custom";
