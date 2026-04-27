@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,9 +18,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CATEGORIES } from "@/lib/categories";
 import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } from "@/lib/schedule";
+import { DURATION_OPTIONS } from "@/lib/duration";
 import { geocodeDemo, fuzzCoord } from "@/lib/location";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap } from "lucide-react";
+import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -29,6 +31,7 @@ const schema = z.object({
   budget: z.coerce.number().min(0).max(10000),
   location_text: z.string().trim().max(120).optional(),
   address_exact: z.string().trim().min(5, "Add an exact street address — only revealed to your accepted helper").max(200),
+  estimated_duration: z.string().min(1, "Estimate how long the job should take"),
 });
 
 export default function PostJob() {
@@ -45,7 +48,12 @@ export default function PostJob() {
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
     location_text: "", address_exact: "",
+    estimated_duration: "",
   });
+  const [toolsProvided, setToolsProvided] = useState(false);
+  const [heavyLifting, setHeavyLifting] = useState(false);
+  const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
+  const [proOnly, setProOnly] = useState(false);
 
   const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
   const isCustom = preset.kind === "custom";
@@ -105,6 +113,11 @@ export default function PostJob() {
         location_lng: fuzzed.lng,
         scheduled_for: date.toISOString(),
         schedule_window: finalWindow,
+        tools_provided: toolsProvided,
+        heavy_lifting: heavyLifting,
+        environment,
+        estimated_duration: parsed.data.estimated_duration,
+        pro_only: proOnly,
       });
       if (insErr) throw insErr;
       toast.success("Job posted! Neighbors can see it now.");
@@ -155,7 +168,86 @@ export default function PostJob() {
               </div>
             </div>
 
-            {/* Completion time */}
+            {/* Requirements Checklist */}
+            <div className="space-y-4 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-5">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-primary" />
+                <Label className="text-base font-extrabold">Requirements checklist</Label>
+              </div>
+              <p className="-mt-2 text-xs text-muted-foreground">Set clear expectations so helpers come prepared.</p>
+
+              <div className="flex items-center justify-between rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-bold">Tools provided?</p>
+                    <p className="text-xs text-muted-foreground">{toolsProvided ? "You'll supply tools" : "Helper brings their own"}</p>
+                  </div>
+                </div>
+                <Switch checked={toolsProvided} onCheckedChange={setToolsProvided} />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-bold">Heavy lifting required?</p>
+                    <p className="text-xs text-muted-foreground">{heavyLifting ? "Yes — physical strength needed" : "No heavy lifting"}</p>
+                  </div>
+                </div>
+                <Switch checked={heavyLifting} onCheckedChange={setHeavyLifting} />
+              </div>
+
+              <div className="space-y-2 rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Sun className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-bold">Indoor or outdoor?</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["indoor", "outdoor", "both"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setEnvironment(opt)}
+                      className={cn(
+                        "rounded-xl border-2 px-3 py-2 text-xs font-bold capitalize transition-smooth",
+                        environment === opt
+                          ? "border-primary bg-primary-soft text-primary"
+                          : "border-border bg-card hover:border-primary/40"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="duration" className="text-sm font-bold">Estimated duration <span className="text-destructive">*</span></Label>
+                <Select value={form.estimated_duration} onValueChange={(v) => setForm({ ...form, estimated_duration: v })}>
+                  <SelectTrigger id="duration" className="h-12 rounded-xl"><SelectValue placeholder="How long should it take?" /></SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Pro-only filter */}
+            <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary-soft to-accent-soft p-4">
+              <div className="flex items-start gap-3">
+                <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-extrabold">Only allow Pro Helpers to apply</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Pro Helpers have completed 5+ jobs with a 4.5★+ average rating.</p>
+                </div>
+              </div>
+              <Switch checked={proOnly} onCheckedChange={setProOnly} />
+            </div>
+
+
             <div className="space-y-3">
               <Label>When does it need to be done?</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

@@ -19,8 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import TrustBadge from "@/components/TrustBadge";
+import ProBadge from "@/components/ProBadge";
 import { toast } from "sonner";
-import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2 } from "lucide-react";
+import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import { categoryMeta } from "@/lib/categories";
@@ -33,6 +34,7 @@ type Profile = {
   trust_grade: "A" | "B" | "C" | "D" | "F";
   jobs_completed: number;
   is_verified: boolean;
+  is_pro_helper: boolean;
   verification_id: string | null;
   verified_at: string | null;
 };
@@ -59,6 +61,14 @@ export default function Account() {
   const [verifyStep, setVerifyStep] = useState<"docs" | "selfie" | "processing">("docs");
   const [docUploaded, setDocUploaded] = useState(false);
   const [selfieUploaded, setSelfieUploaded] = useState(false);
+  const [restriction, setRestriction] = useState<{ restricted: boolean; until_ts: string | null; consecutive_count: number } | null>(null);
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    if (!restriction?.restricted) return;
+    const t = setInterval(() => forceTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [restriction?.restricted]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -69,10 +79,13 @@ export default function Account() {
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id, display_name, bio, age_range, trust_grade, jobs_completed, is_verified, verification_id, verified_at")
+        .select("id, display_name, bio, age_range, trust_grade, jobs_completed, is_verified, is_pro_helper, verification_id, verified_at")
         .eq("id", user.id)
         .single();
       setProfile(p as any);
+
+      const { data: rest } = await supabase.rpc("get_doer_restriction", { _doer_id: user.id });
+      if (rest && rest[0]) setRestriction(rest[0] as any);
 
       const { data: posted } = await supabase
         .from("jobs")
@@ -167,7 +180,29 @@ export default function Account() {
           </Button>
         </div>
 
-        {/* Identity verification */}
+        {/* Restriction banner */}
+        {restriction?.restricted && restriction.until_ts && (
+          <Card className="mb-6 rounded-3xl border-destructive/40 bg-destructive/10 p-5 shadow-card">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
+              <div>
+                <h2 className="font-extrabold text-destructive">Access restricted</h2>
+                <p className="mt-1 text-sm text-foreground/80">
+                  You cancelled {restriction.consecutive_count} accepted jobs in a row. Access restricted for{" "}
+                  <span className="font-bold">{(() => {
+                    const ms = Math.max(0, new Date(restriction.until_ts).getTime() - Date.now());
+                    const h = Math.floor(ms / 3_600_000);
+                    const m = Math.floor((ms % 3_600_000) / 60_000);
+                    const s = Math.floor((ms % 60_000) / 1000);
+                    return `${h}h ${m}m ${s}s`;
+                  })()}</span> due to multiple cancellations.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+
         <Card className={cn(
           "rounded-3xl p-6 shadow-card mb-6",
           profile.is_verified ? "bg-accent-soft border-accent/30" : "border-border/60"
@@ -217,7 +252,10 @@ export default function Account() {
                   {(profile.display_name ?? user?.email ?? "?").charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
+                    {profile.is_pro_helper && <ProBadge compact />}
+                  </div>
                   <div className="mt-1 flex items-center gap-2">
                     <TrustBadge grade={profile.trust_grade} />
                     <span className="text-xs text-muted-foreground">{profile.jobs_completed} jobs done</span>

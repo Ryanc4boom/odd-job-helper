@@ -14,7 +14,8 @@ import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapPin, DollarSign, Plus, Clock, Lock } from "lucide-react";
+import { MapPin, DollarSign, Plus, Clock, Lock, Sparkles } from "lucide-react";
+import ProBadge from "@/components/ProBadge";
 import { cn } from "@/lib/utils";
 
 function buildIcon(category: JobCategory) {
@@ -105,7 +106,10 @@ export default function Feed() {
                           <DollarSign className="h-3.5 w-3.5" />{Number(job.budget).toFixed(0)}
                         </div>
                       </div>
-                      <h3 className="mt-4 font-extrabold leading-tight">{job.title}</h3>
+                      <div className="mt-4 flex items-start justify-between gap-2">
+                        <h3 className="font-extrabold leading-tight">{job.title}</h3>
+                        {(job as any).pro_only && <ProBadge compact />}
+                      </div>
                       <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      cancellations: {
+        Row: {
+          created_at: string
+          doer_id: string
+          id: string
+          job_id: string
+        }
+        Insert: {
+          created_at?: string
+          doer_id: string
+          id?: string
+          job_id: string
+        }
+        Update: {
+          created_at?: string
+          doer_id?: string
+          id?: string
+          job_id?: string
+        }
+        Relationships: []
+      }
       job_requests: {
         Row: {
           created_at: string
@@ -66,64 +87,103 @@ export type Database = {
         Row: {
           accepted_doer_id: string | null
           address_exact: string | null
+          after_photo_url: string | null
+          ai_verification: Json | null
+          approved_at: string | null
+          before_photo_url: string | null
           budget: number
           category: Database["public"]["Enums"]["job_category"]
           created_at: string
           description: string
+          dispute_reason: string | null
+          disputed_at: string | null
           doer_id: string | null
+          environment: string
+          estimated_duration: string | null
           exact_lat: number | null
           exact_lng: number | null
+          finished_at: string | null
+          heavy_lifting: boolean
           id: string
           location_lat: number | null
           location_lng: number | null
           location_text: string | null
           poster_id: string
+          pro_only: boolean
           schedule_window: string
           scheduled_for: string | null
+          started_at: string | null
           status: Database["public"]["Enums"]["job_status"]
           title: string
+          tools_provided: boolean
           updated_at: string
         }
         Insert: {
           accepted_doer_id?: string | null
           address_exact?: string | null
+          after_photo_url?: string | null
+          ai_verification?: Json | null
+          approved_at?: string | null
+          before_photo_url?: string | null
           budget?: number
           category?: Database["public"]["Enums"]["job_category"]
           created_at?: string
           description: string
+          dispute_reason?: string | null
+          disputed_at?: string | null
           doer_id?: string | null
+          environment?: string
+          estimated_duration?: string | null
           exact_lat?: number | null
           exact_lng?: number | null
+          finished_at?: string | null
+          heavy_lifting?: boolean
           id?: string
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id: string
+          pro_only?: boolean
           schedule_window?: string
           scheduled_for?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title: string
+          tools_provided?: boolean
           updated_at?: string
         }
         Update: {
           accepted_doer_id?: string | null
           address_exact?: string | null
+          after_photo_url?: string | null
+          ai_verification?: Json | null
+          approved_at?: string | null
+          before_photo_url?: string | null
           budget?: number
           category?: Database["public"]["Enums"]["job_category"]
           created_at?: string
           description?: string
+          dispute_reason?: string | null
+          disputed_at?: string | null
           doer_id?: string | null
+          environment?: string
+          estimated_duration?: string | null
           exact_lat?: number | null
           exact_lng?: number | null
+          finished_at?: string | null
+          heavy_lifting?: boolean
           id?: string
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id?: string
+          pro_only?: boolean
           schedule_window?: string
           scheduled_for?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title?: string
+          tools_provided?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -169,8 +229,10 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_pro_helper: boolean
           is_verified: boolean
           jobs_completed: number
+          pro_helper_since: string | null
           trust_grade: Database["public"]["Enums"]["trust_grade"]
           updated_at: string
           verification_id: string | null
@@ -183,8 +245,10 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          is_pro_helper?: boolean
           is_verified?: boolean
           jobs_completed?: number
+          pro_helper_since?: string | null
           trust_grade?: Database["public"]["Enums"]["trust_grade"]
           updated_at?: string
           verification_id?: string | null
@@ -197,8 +261,10 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_pro_helper?: boolean
           is_verified?: boolean
           jobs_completed?: number
+          pro_helper_since?: string | null
           trust_grade?: Database["public"]["Enums"]["trust_grade"]
           updated_at?: string
           verification_id?: string | null
@@ -277,62 +343,106 @@ export type Database = {
       jobs_public: {
         Row: {
           accepted_doer_id: string | null
+          after_photo_url: string | null
+          approved_at: string | null
+          before_photo_url: string | null
           budget: number | null
           category: Database["public"]["Enums"]["job_category"] | null
           created_at: string | null
           description: string | null
+          dispute_reason: string | null
+          disputed_at: string | null
           doer_id: string | null
+          environment: string | null
+          estimated_duration: string | null
+          finished_at: string | null
+          heavy_lifting: boolean | null
           id: string | null
           location_lat: number | null
           location_lng: number | null
           location_text: string | null
           poster_id: string | null
+          pro_only: boolean | null
           schedule_window: string | null
           scheduled_for: string | null
+          started_at: string | null
           status: Database["public"]["Enums"]["job_status"] | null
           title: string | null
+          tools_provided: boolean | null
           updated_at: string | null
         }
         Insert: {
           accepted_doer_id?: string | null
+          after_photo_url?: string | null
+          approved_at?: string | null
+          before_photo_url?: string | null
           budget?: number | null
           category?: Database["public"]["Enums"]["job_category"] | null
           created_at?: string | null
           description?: string | null
+          dispute_reason?: string | null
+          disputed_at?: string | null
           doer_id?: string | null
+          environment?: string | null
+          estimated_duration?: string | null
+          finished_at?: string | null
+          heavy_lifting?: boolean | null
           id?: string | null
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id?: string | null
+          pro_only?: boolean | null
           schedule_window?: string | null
           scheduled_for?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           title?: string | null
+          tools_provided?: boolean | null
           updated_at?: string | null
         }
         Update: {
           accepted_doer_id?: string | null
+          after_photo_url?: string | null
+          approved_at?: string | null
+          before_photo_url?: string | null
           budget?: number | null
           category?: Database["public"]["Enums"]["job_category"] | null
           created_at?: string | null
           description?: string | null
+          dispute_reason?: string | null
+          disputed_at?: string | null
           doer_id?: string | null
+          environment?: string | null
+          estimated_duration?: string | null
+          finished_at?: string | null
+          heavy_lifting?: boolean | null
           id?: string | null
           location_lat?: number | null
           location_lng?: number | null
           location_text?: string | null
           poster_id?: string | null
+          pro_only?: boolean | null
           schedule_window?: string | null
           scheduled_for?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           title?: string | null
+          tools_provided?: boolean | null
           updated_at?: string | null
         }
         Relationships: []
       }
     }
     Functions: {
+      get_doer_restriction: {
+        Args: { _doer_id: string }
+        Returns: {
+          consecutive_count: number
+          restricted: boolean
+          until_ts: string
+        }[]
+      }
       get_job_exact_location: {
         Args: { _job_id: string }
         Returns: {
@@ -348,6 +458,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      recompute_pro_helper: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "poster" | "doer" | "admin"
@@ -360,7 +471,12 @@ export type Database = {
         | "errands"
         | "assembly"
         | "other"
-      job_status: "open" | "in_progress" | "completed" | "cancelled"
+      job_status:
+        | "open"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "disputed"
       trust_grade: "A" | "B" | "C" | "D" | "F"
     }
     CompositeTypes: {
@@ -500,7 +616,7 @@ export const Constants = {
         "assembly",
         "other",
       ],
-      job_status: ["open", "in_progress", "completed", "cancelled"],
+      job_status: ["open", "in_progress", "completed", "cancelled", "disputed"],
       trust_grade: ["A", "B", "C", "D", "F"],
     },
   },
