@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import TrustBadge from "@/components/TrustBadge";
 import ProBadge from "@/components/ProBadge";
+import StarRating from "@/components/StarRating";
 import { toast } from "sonner";
 import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export default function Account() {
   const [docUploaded, setDocUploaded] = useState(false);
   const [selfieUploaded, setSelfieUploaded] = useState(false);
   const [restriction, setRestriction] = useState<{ restricted: boolean; until_ts: string | null; consecutive_count: number } | null>(null);
+  const [ratingStats, setRatingStats] = useState<{ avg: number | null; count: number }>({ avg: null, count: 0 });
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -86,6 +88,17 @@ export default function Account() {
 
       const { data: rest } = await supabase.rpc("get_doer_restriction", { _doer_id: user.id });
       if (rest && rest[0]) setRestriction(rest[0] as any);
+
+      const { data: ratings } = await supabase
+        .from("ratings")
+        .select("score")
+        .eq("ratee_id", user.id);
+      if (ratings && ratings.length > 0) {
+        const sum = ratings.reduce((s: number, r: any) => s + Number(r.score), 0);
+        setRatingStats({ avg: sum / ratings.length, count: ratings.length });
+      } else {
+        setRatingStats({ avg: null, count: 0 });
+      }
 
       const { data: posted } = await supabase
         .from("jobs")
@@ -256,9 +269,16 @@ export default function Account() {
                     <p className="font-extrabold">{profile.display_name ?? "Neighbor"}</p>
                     {profile.is_pro_helper && <ProBadge compact />}
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <TrustBadge grade={profile.trust_grade} />
                     <span className="text-xs text-muted-foreground">{profile.jobs_completed} jobs done</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <StarRating
+                      score={ratingStats.avg}
+                      count={ratingStats.count}
+                      emptyLabel={profile.jobs_completed === 0 ? "New Helper" : "No ratings yet"}
+                    />
                   </div>
                 </div>
               </div>

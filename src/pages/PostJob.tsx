@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { format } from "date-fns";
 import Header from "@/components/Header";
@@ -21,7 +21,9 @@ import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } fr
 import { DURATION_OPTIONS } from "@/lib/duration";
 import { geocodeDemo, fuzzCoord } from "@/lib/location";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck } from "lucide-react";
+import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock } from "lucide-react";
+import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { categoryMeta } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -54,6 +56,43 @@ export default function PostJob() {
   const [heavyLifting, setHeavyLifting] = useState(false);
   const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
   const [proOnly, setProOnly] = useState(false);
+
+  const [myJobs, setMyJobs] = useState<any[]>([]);
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; title: string } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  const refreshMyJobs = async (uid: string) => {
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, title, status, budget, scheduled_for, schedule_window, category, created_at")
+      .eq("poster_id", uid)
+      .order("created_at", { ascending: false });
+    setMyJobs(data ?? []);
+  };
+
+  useEffect(() => {
+    if (user) refreshMyJobs(user.id);
+  }, [user]);
+
+  const confirmCancel = async () => {
+    if (!cancelTarget || !user) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ status: "cancelled" as any })
+        .eq("id", cancelTarget.id)
+        .eq("poster_id", user.id);
+      if (error) throw error;
+      toast.success("Job cancelled");
+      setMyJobs((prev) => prev.map((j) => (j.id === cancelTarget.id ? { ...j, status: "cancelled" } : j)));
+      setCancelTarget(null);
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not cancel");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
   const isCustom = preset.kind === "custom";
@@ -346,7 +385,89 @@ export default function PostJob() {
             </Button>
           </form>
         </Card>
+
+        {/* My Posted Jobs */}
+        <Card className="mt-8 rounded-3xl border-border/60 p-6 shadow-card md:p-8">
+          <div className="mb-4 flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-extrabold">My posted jobs</h2>
+          </div>
+          {myJobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">You haven't posted any jobs yet. Fill out the form above to get started.</p>
+          ) : (
+            <ul className="space-y-3">
+              {myJobs.map((j) => {
+                const meta = categoryMeta(j.category);
+                const Icon = meta.icon;
+                const statusLabel: Record<string, string> = {
+                  open: "Open",
+                  in_progress: "Accepted",
+                  completed: "Completed",
+                  cancelled: "Cancelled",
+                  disputed: "Disputed",
+                };
+                const statusStyle: Record<string, string> = {
+                  open: "bg-primary-soft text-primary border-primary/30",
+                  in_progress: "bg-accent-soft text-accent-foreground border-accent/30",
+                  completed: "bg-secondary text-secondary-foreground border-border",
+                  cancelled: "bg-muted text-muted-foreground border-border",
+                  disputed: "bg-destructive/15 text-destructive border-destructive/30",
+                };
+                return (
+                  <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${meta.color}1a` }}>
+                        <Icon className="h-5 w-5" style={{ color: meta.color }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/jobs/${j.id}`} className="block truncate font-extrabold hover:underline">{j.title}</Link>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-bold", statusStyle[j.status] ?? statusStyle.open)}>
+                            {statusLabel[j.status] ?? j.status}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <Clock className="h-3 w-3" />{formatSchedule(j.scheduled_for, j.schedule_window)}
+                          </span>
+                          <span className="font-bold text-foreground">${Number(j.budget).toFixed(0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {j.status === "open" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCancelTarget({ id: j.id, title: j.title })}
+                        className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <XCircle className="mr-1 h-4 w-4" /> Cancel job
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
       </div>
+
+      {/* Cancel confirmation */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{cancelTarget?.title}" will be marked as cancelled and removed from the feed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setCancelTarget(null)} disabled={cancelling} className="rounded-2xl">Keep it</Button>
+            <AlertDialogAction onClick={confirmCancel} disabled={cancelling} className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {cancelling ? "Cancelling…" : "Yes, cancel job"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={blocked.open} onOpenChange={(o) => setBlocked({ ...blocked, open: o })}>
         <AlertDialogContent className="rounded-3xl">
