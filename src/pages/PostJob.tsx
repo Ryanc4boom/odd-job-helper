@@ -385,7 +385,89 @@ export default function PostJob() {
             </Button>
           </form>
         </Card>
+
+        {/* My Posted Jobs */}
+        <Card className="mt-8 rounded-3xl border-border/60 p-6 shadow-card md:p-8">
+          <div className="mb-4 flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-extrabold">My posted jobs</h2>
+          </div>
+          {myJobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">You haven't posted any jobs yet. Fill out the form above to get started.</p>
+          ) : (
+            <ul className="space-y-3">
+              {myJobs.map((j) => {
+                const meta = categoryMeta(j.category);
+                const Icon = meta.icon;
+                const statusLabel: Record<string, string> = {
+                  open: "Open",
+                  in_progress: "Accepted",
+                  completed: "Completed",
+                  cancelled: "Cancelled",
+                  disputed: "Disputed",
+                };
+                const statusStyle: Record<string, string> = {
+                  open: "bg-primary-soft text-primary border-primary/30",
+                  in_progress: "bg-accent-soft text-accent-foreground border-accent/30",
+                  completed: "bg-secondary text-secondary-foreground border-border",
+                  cancelled: "bg-muted text-muted-foreground border-border",
+                  disputed: "bg-destructive/15 text-destructive border-destructive/30",
+                };
+                return (
+                  <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${meta.color}1a` }}>
+                        <Icon className="h-5 w-5" style={{ color: meta.color }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/jobs/${j.id}`} className="block truncate font-extrabold hover:underline">{j.title}</Link>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-bold", statusStyle[j.status] ?? statusStyle.open)}>
+                            {statusLabel[j.status] ?? j.status}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <Clock className="h-3 w-3" />{formatSchedule(j.scheduled_for, j.schedule_window)}
+                          </span>
+                          <span className="font-bold text-foreground">${Number(j.budget).toFixed(0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {j.status === "open" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCancelTarget({ id: j.id, title: j.title })}
+                        className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <XCircle className="mr-1 h-4 w-4" /> Cancel job
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
       </div>
+
+      {/* Cancel confirmation */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{cancelTarget?.title}" will be marked as cancelled and removed from the feed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setCancelTarget(null)} disabled={cancelling} className="rounded-2xl">Keep it</Button>
+            <AlertDialogAction onClick={confirmCancel} disabled={cancelling} className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {cancelling ? "Cancelling…" : "Yes, cancel job"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={blocked.open} onOpenChange={(o) => setBlocked({ ...blocked, open: o })}>
         <AlertDialogContent className="rounded-3xl">
