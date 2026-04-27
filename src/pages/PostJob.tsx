@@ -168,7 +168,86 @@ export default function PostJob() {
               </div>
             </div>
 
-            {/* Completion time */}
+            {/* Requirements Checklist */}
+            <div className="space-y-4 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-5">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-primary" />
+                <Label className="text-base font-extrabold">Requirements checklist</Label>
+              </div>
+              <p className="-mt-2 text-xs text-muted-foreground">Set clear expectations so helpers come prepared.</p>
+
+              <div className="flex items-center justify-between rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-bold">Tools provided?</p>
+                    <p className="text-xs text-muted-foreground">{toolsProvided ? "You'll supply tools" : "Helper brings their own"}</p>
+                  </div>
+                </div>
+                <Switch checked={toolsProvided} onCheckedChange={setToolsProvided} />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-bold">Heavy lifting required?</p>
+                    <p className="text-xs text-muted-foreground">{heavyLifting ? "Yes — physical strength needed" : "No heavy lifting"}</p>
+                  </div>
+                </div>
+                <Switch checked={heavyLifting} onCheckedChange={setHeavyLifting} />
+              </div>
+
+              <div className="space-y-2 rounded-xl bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <Sun className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-bold">Indoor or outdoor?</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["indoor", "outdoor", "both"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setEnvironment(opt)}
+                      className={cn(
+                        "rounded-xl border-2 px-3 py-2 text-xs font-bold capitalize transition-smooth",
+                        environment === opt
+                          ? "border-primary bg-primary-soft text-primary"
+                          : "border-border bg-card hover:border-primary/40"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="duration" className="text-sm font-bold">Estimated duration <span className="text-destructive">*</span></Label>
+                <Select value={form.estimated_duration} onValueChange={(v) => setForm({ ...form, estimated_duration: v })}>
+                  <SelectTrigger id="duration" className="h-12 rounded-xl"><SelectValue placeholder="How long should it take?" /></SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Pro-only filter */}
+            <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary-soft to-accent-soft p-4">
+              <div className="flex items-start gap-3">
+                <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-extrabold">Only allow Pro Helpers to apply</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Pro Helpers have completed 5+ jobs with a 4.5★+ average rating.</p>
+                </div>
+              </div>
+              <Switch checked={proOnly} onCheckedChange={setProOnly} />
+            </div>
+
+
             <div className="space-y-3">
               <Label>When does it need to be done?</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
