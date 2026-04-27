@@ -57,6 +57,43 @@ export default function PostJob() {
   const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
   const [proOnly, setProOnly] = useState(false);
 
+  const [myJobs, setMyJobs] = useState<any[]>([]);
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; title: string } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  const refreshMyJobs = async (uid: string) => {
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, title, status, budget, scheduled_for, schedule_window, category, created_at")
+      .eq("poster_id", uid)
+      .order("created_at", { ascending: false });
+    setMyJobs(data ?? []);
+  };
+
+  useEffect(() => {
+    if (user) refreshMyJobs(user.id);
+  }, [user]);
+
+  const confirmCancel = async () => {
+    if (!cancelTarget || !user) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ status: "cancelled" as any })
+        .eq("id", cancelTarget.id)
+        .eq("poster_id", user.id);
+      if (error) throw error;
+      toast.success("Job cancelled");
+      setMyJobs((prev) => prev.map((j) => (j.id === cancelTarget.id ? { ...j, status: "cancelled" } : j)));
+      setCancelTarget(null);
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not cancel");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
   const isCustom = preset.kind === "custom";
   const showWindowToggle = preset.kind === "tomorrow" || preset.kind === "custom";
