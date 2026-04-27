@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { format } from "date-fns";
 import Header from "@/components/Header";
@@ -21,7 +21,9 @@ import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } fr
 import { DURATION_OPTIONS } from "@/lib/duration";
 import { geocodeDemo, fuzzCoord } from "@/lib/location";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck } from "lucide-react";
+import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock } from "lucide-react";
+import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { categoryMeta } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
