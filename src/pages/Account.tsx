@@ -61,6 +61,14 @@ export default function Account() {
   const [verifyStep, setVerifyStep] = useState<"docs" | "selfie" | "processing">("docs");
   const [docUploaded, setDocUploaded] = useState(false);
   const [selfieUploaded, setSelfieUploaded] = useState(false);
+  const [restriction, setRestriction] = useState<{ restricted: boolean; until_ts: string | null; consecutive_count: number } | null>(null);
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    if (!restriction?.restricted) return;
+    const t = setInterval(() => forceTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [restriction?.restricted]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
