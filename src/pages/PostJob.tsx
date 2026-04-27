@@ -113,6 +113,11 @@ export default function PostJob() {
         location_lng: fuzzed.lng,
         scheduled_for: date.toISOString(),
         schedule_window: finalWindow,
+        tools_provided: toolsProvided,
+        heavy_lifting: heavyLifting,
+        environment,
+        estimated_duration: parsed.data.estimated_duration,
+        pro_only: proOnly,
       });
       if (insErr) throw insErr;
       toast.success("Job posted! Neighbors can see it now.");
