@@ -79,10 +79,13 @@ export default function Account() {
     (async () => {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id, display_name, bio, age_range, trust_grade, jobs_completed, is_verified, verification_id, verified_at")
+        .select("id, display_name, bio, age_range, trust_grade, jobs_completed, is_verified, is_pro_helper, verification_id, verified_at")
         .eq("id", user.id)
         .single();
       setProfile(p as any);
+
+      const { data: rest } = await supabase.rpc("get_doer_restriction", { _doer_id: user.id });
+      if (rest && rest[0]) setRestriction(rest[0] as any);
 
       const { data: posted } = await supabase
         .from("jobs")
