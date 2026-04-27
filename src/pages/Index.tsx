@@ -20,9 +20,7 @@ export default function Index() {
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
               Your Neighborhood,
               <br />
-              <span className="bg-gradient-primary bg-clip-text font-extrabold text-5xl text-accent border-primary-foreground bg-primary-foreground">
-                at your service
-              </span>
+              <span className="font-extrabold text-5xl text-primary">at your service</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-muted-foreground">
               Odd Job is the friendly community marketplace for everyday help — yardwork, moving boxes, walking the dog.
