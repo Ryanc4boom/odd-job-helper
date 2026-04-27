@@ -20,7 +20,7 @@ export default function Index() {
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
               Your Neighborhood,
               <br />
-              <span className="bg-gradient-primary bg-clip-text font-extrabold text-primary text-5xl bg-primary-foreground">
+              <span className="bg-gradient-primary bg-clip-text font-extrabold text-primary text-5xl bg-primary-soft">
                 at your service
               </span>
             </h1>
