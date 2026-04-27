@@ -179,7 +179,7 @@ export default function Account() {
             )}>
               {profile.is_verified ? <BadgeCheck className="h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <h2 className="text-lg font-extrabold">Identity Verification</h2>
               {profile.is_verified ? (
                 <>
@@ -192,8 +192,8 @@ export default function Account() {
                 </>
               ) : (
                 <>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Verify your identity to unlock jobs and earn a Verified Neighbor badge. Helps keep our community safe.
+                  <p className="mt-1 text-sm leading-snug text-muted-foreground text-pretty">
+                    Verify your identity to unlock jobs and earn a Verified Neighbor badge — it keeps our community safe.
                   </p>
                   <Button onClick={startVerify} className="mt-4 h-12 rounded-2xl text-base">
                     <ShieldCheck className="mr-1 h-4 w-4" /> Verify Identity to Start Working
