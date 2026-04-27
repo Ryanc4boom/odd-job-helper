@@ -14,7 +14,8 @@ import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapPin, DollarSign, Plus, Clock, Lock } from "lucide-react";
+import { MapPin, DollarSign, Plus, Clock, Lock, Sparkles } from "lucide-react";
+import ProBadge from "@/components/ProBadge";
 import { cn } from "@/lib/utils";
 
 function buildIcon(category: JobCategory) {
