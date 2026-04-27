@@ -18,8 +18,8 @@ export default function Index() {
               <Sparkles className="h-4 w-4" /> Neighbors helping neighbors
             </span>
             <h1 className="mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
-              Small tasks,<br />
-              <span className="bg-gradient-primary bg-clip-text text-transparent">big help.</span>
+              Your Neighborhood ,<br />
+              <span className="bg-gradient-primary bg-clip-text font-extrabold text-primary text-5xl">at your service</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-muted-foreground">
               Odd Job is the friendly community marketplace for everyday help — yardwork, moving boxes, walking the dog. No specialists. Just neighbors.
