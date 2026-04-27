@@ -180,7 +180,29 @@ export default function Account() {
           </Button>
         </div>
 
-        {/* Identity verification */}
+        {/* Restriction banner */}
+        {restriction?.restricted && restriction.until_ts && (
+          <Card className="mb-6 rounded-3xl border-destructive/40 bg-destructive/10 p-5 shadow-card">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
+              <div>
+                <h2 className="font-extrabold text-destructive">Access restricted</h2>
+                <p className="mt-1 text-sm text-foreground/80">
+                  You cancelled {restriction.consecutive_count} accepted jobs in a row. Access restricted for{" "}
+                  <span className="font-bold">{(() => {
+                    const ms = Math.max(0, new Date(restriction.until_ts).getTime() - Date.now());
+                    const h = Math.floor(ms / 3_600_000);
+                    const m = Math.floor((ms % 3_600_000) / 60_000);
+                    const s = Math.floor((ms % 60_000) / 1000);
+                    return `${h}h ${m}m ${s}s`;
+                  })()}</span> due to multiple cancellations.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+
         <Card className={cn(
           "rounded-3xl p-6 shadow-card mb-6",
           profile.is_verified ? "bg-accent-soft border-accent/30" : "border-border/60"
