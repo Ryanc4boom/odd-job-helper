@@ -179,7 +179,7 @@ export default function Account() {
             )}>
               {profile.is_verified ? <BadgeCheck className="h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <h2 className="text-lg font-extrabold">Identity Verification</h2>
               {profile.is_verified ? (
                 <>
