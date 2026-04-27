@@ -89,6 +89,17 @@ export default function Account() {
       const { data: rest } = await supabase.rpc("get_doer_restriction", { _doer_id: user.id });
       if (rest && rest[0]) setRestriction(rest[0] as any);
 
+      const { data: ratings } = await supabase
+        .from("ratings")
+        .select("score")
+        .eq("ratee_id", user.id);
+      if (ratings && ratings.length > 0) {
+        const sum = ratings.reduce((s: number, r: any) => s + Number(r.score), 0);
+        setRatingStats({ avg: sum / ratings.length, count: ratings.length });
+      } else {
+        setRatingStats({ avg: null, count: 0 });
+      }
+
       const { data: posted } = await supabase
         .from("jobs")
         .select("id, title, status, budget, scheduled_for, schedule_window, category")
