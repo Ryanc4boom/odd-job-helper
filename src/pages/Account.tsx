@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import TrustBadge from "@/components/TrustBadge";
 import ProBadge from "@/components/ProBadge";
+import StarRating from "@/components/StarRating";
 import { toast } from "sonner";
 import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export default function Account() {
   const [docUploaded, setDocUploaded] = useState(false);
   const [selfieUploaded, setSelfieUploaded] = useState(false);
   const [restriction, setRestriction] = useState<{ restricted: boolean; until_ts: string | null; consecutive_count: number } | null>(null);
+  const [ratingStats, setRatingStats] = useState<{ avg: number | null; count: number }>({ avg: null, count: 0 });
   const [, forceTick] = useState(0);
 
   useEffect(() => {
