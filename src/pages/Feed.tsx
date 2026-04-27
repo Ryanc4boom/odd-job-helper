@@ -16,6 +16,7 @@ import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapPin, DollarSign, Plus, Clock, Lock, Sparkles } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
+import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
 
 function buildIcon(category: JobCategory) {
@@ -29,6 +30,7 @@ export default function Feed() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [posterRatings, setPosterRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,10 +41,29 @@ export default function Feed() {
     if (!user) return;
     // Use the public view that hides exact coordinates and address
     supabase.from("jobs_public" as any).select("*").eq("status", "open").order("created_at", { ascending: false })
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error) console.error(error);
-        setJobs((data as any as Job[]) ?? []);
+        const list = (data as any as Job[]) ?? [];
+        setJobs(list);
         setLoading(false);
+
+        const posterIds = Array.from(new Set(list.map((j) => j.poster_id).filter(Boolean)));
+        if (posterIds.length > 0) {
+          const { data: ratings } = await supabase
+            .from("ratings")
+            .select("ratee_id, score")
+            .in("ratee_id", posterIds);
+          const agg: Record<string, { sum: number; count: number }> = {};
+          (ratings ?? []).forEach((r: any) => {
+            const key = r.ratee_id as string;
+            if (!agg[key]) agg[key] = { sum: 0, count: 0 };
+            agg[key].sum += Number(r.score);
+            agg[key].count += 1;
+          });
+          const out: Record<string, { avg: number; count: number }> = {};
+          Object.entries(agg).forEach(([k, v]) => { out[k] = { avg: v.sum / v.count, count: v.count }; });
+          setPosterRatings(out);
+        }
       });
   }, [user]);
 
