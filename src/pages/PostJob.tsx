@@ -19,7 +19,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { CATEGORIES } from "@/lib/categories";
 import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } from "@/lib/schedule";
 import { DURATION_OPTIONS } from "@/lib/duration";
-import { geocodeDemo, fuzzCoord } from "@/lib/location";
+import { fuzzCoord } from "@/lib/location";
+import MapboxAddressSearch from "@/components/MapboxAddressSearch";
 import { toast } from "sonner";
 import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock } from "lucide-react";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
@@ -31,8 +32,7 @@ const schema = z.object({
   description: z.string().trim().min(20, "Tell neighbors what you need (20+ chars)").max(800),
   category: z.string(),
   budget: z.coerce.number().min(0).max(10000),
-  location_text: z.string().trim().max(120).optional(),
-  address_exact: z.string().trim().min(5, "Add an exact street address — only revealed to your accepted helper").max(200),
+  address_exact: z.string().trim().min(5, "Pick your exact street address from the dropdown").max(200),
   estimated_duration: z.string().min(1, "Estimate how long the job should take"),
 });
 
@@ -49,9 +49,11 @@ export default function PostJob() {
 
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
-    location_text: "", address_exact: "",
+    address_exact: "",
     estimated_duration: "",
   });
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [toolsProvided, setToolsProvided] = useState(false);
   const [heavyLifting, setHeavyLifting] = useState(false);
   const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
@@ -73,6 +75,12 @@ export default function PostJob() {
   useEffect(() => {
     if (user) refreshMyJobs(user.id);
   }, [user]);
+
+  useEffect(() => {
+    supabase.functions.invoke("get-mapbox-token").then(({ data, error }) => {
+      if (!error && data?.token) setMapboxToken(data.token);
+    });
+  }, []);
 
   const confirmCancel = async () => {
     if (!cancelTarget || !user) return;
@@ -135,7 +143,11 @@ export default function PostJob() {
       if (mod?.error) throw new Error(mod.error);
       if (!mod.allowed) { setBlocked({ open: true, reason: mod.reason }); return; }
 
-      const exact = geocodeDemo(parsed.data.address_exact);
+      if (!selectedCoords) {
+        toast.error("Please select your address from the dropdown");
+        return;
+      }
+      const exact = selectedCoords;
       const fuzzed = fuzzCoord(exact.lat, exact.lng, 500);
 
       const { error: insErr } = await supabase.from("jobs").insert({
@@ -144,7 +156,6 @@ export default function PostJob() {
         description: parsed.data.description,
         category: (mod.category ?? parsed.data.category) as any,
         budget: parsed.data.budget,
-        location_text: parsed.data.location_text || null,
         address_exact: parsed.data.address_exact,
         exact_lat: exact.lat,
         exact_lng: exact.lng,
@@ -358,16 +369,26 @@ export default function PostJob() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="loc">Neighborhood (shown publicly)</Label>
-              <Input id="loc" value={form.location_text} onChange={(e) => setForm({ ...form, location_text: e.target.value })} placeholder="Mission District, near Dolores Park" maxLength={120} className="h-12 rounded-xl text-base" />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="addr" className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-accent" /> Exact street address (private)
               </Label>
-              <Input id="addr" value={form.address_exact} onChange={(e) => setForm({ ...form, address_exact: e.target.value })} placeholder="123 Valencia St, Apt 4" maxLength={200} className="h-12 rounded-xl text-base" />
-              <p className="text-xs text-muted-foreground">Only revealed to a helper after you accept their request.</p>
+              <MapboxAddressSearch
+                token={mapboxToken}
+                value={form.address_exact}
+                onChange={(val) => {
+                  setForm({ ...form, address_exact: val });
+                  if (selectedCoords) setSelectedCoords(null);
+                }}
+                onSelect={({ address, lat, lng }) => {
+                  setForm({ ...form, address_exact: address });
+                  setSelectedCoords({ lat, lng });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {selectedCoords
+                  ? "✓ Address confirmed — only revealed to a helper after you accept their request."
+                  : "Search and select your Glen Ellyn address from the dropdown. Only revealed to a helper after you accept."}
+              </p>
             </div>
 
             <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm">
