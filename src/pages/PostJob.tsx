@@ -143,7 +143,11 @@ export default function PostJob() {
       if (mod?.error) throw new Error(mod.error);
       if (!mod.allowed) { setBlocked({ open: true, reason: mod.reason }); return; }
 
-      const exact = geocodeDemo(parsed.data.address_exact);
+      if (!selectedCoords) {
+        toast.error("Please select your address from the dropdown");
+        return;
+      }
+      const exact = selectedCoords;
       const fuzzed = fuzzCoord(exact.lat, exact.lng, 500);
 
       const { error: insErr } = await supabase.from("jobs").insert({
@@ -152,7 +156,6 @@ export default function PostJob() {
         description: parsed.data.description,
         category: (mod.category ?? parsed.data.category) as any,
         budget: parsed.data.budget,
-        location_text: parsed.data.location_text || null,
         address_exact: parsed.data.address_exact,
         exact_lat: exact.lat,
         exact_lng: exact.lng,
