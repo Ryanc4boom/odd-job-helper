@@ -49,9 +49,11 @@ export default function PostJob() {
 
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
-    location_text: "", address_exact: "",
+    address_exact: "",
     estimated_duration: "",
   });
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [toolsProvided, setToolsProvided] = useState(false);
   const [heavyLifting, setHeavyLifting] = useState(false);
   const [environment, setEnvironment] = useState<"indoor" | "outdoor" | "both">("indoor");
