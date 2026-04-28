@@ -24,7 +24,7 @@ import StarRating from "@/components/StarRating";
 import { toast } from "sonner";
 import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { formatTimeRemaining, expirationLevel, countdownBadgeClass } from "@/lib/expiration";
 import { categoryMeta } from "@/lib/categories";
 
 type Profile = {
@@ -102,14 +102,14 @@ export default function Account() {
 
       const { data: posted } = await supabase
         .from("jobs")
-        .select("id, title, status, budget, scheduled_for, schedule_window, category")
+        .select("id, title, status, budget, expires_at, category")
         .eq("poster_id", user.id)
         .order("created_at", { ascending: false });
       setPostedJobs(posted ?? []);
 
       const { data: reqs } = await supabase
         .from("job_requests")
-        .select("status, jobs:job_id(id, title, status, budget, scheduled_for, schedule_window, category)")
+        .select("status, jobs:job_id(id, title, status, budget, expires_at, category)")
         .eq("doer_id", user.id)
         .order("created_at", { ascending: false });
       setAcceptedJobs((reqs ?? []).filter((r: any) => r.jobs).map((r: any) => ({ ...r.jobs, request_status: r.status })));
@@ -463,9 +463,11 @@ function JobRow({ job, requestStatus }: { job: any; requestStatus?: string }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">{job.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold", scheduleBadgeStyle(job.schedule_window))}>
-              {formatSchedule(job.scheduled_for, job.schedule_window)}
-            </span>
+            {job.expires_at && job.status === "open" && (
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold", countdownBadgeClass(expirationLevel(job.expires_at)))}>
+                {formatTimeRemaining(job.expires_at)}
+              </span>
+            )}
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
               ${Number(job.budget).toFixed(0)}
             </span>

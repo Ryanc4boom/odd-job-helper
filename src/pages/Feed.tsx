@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { categoryMeta, CATEGORIES, type JobCategory } from "@/lib/categories";
 import type { Job } from "@/lib/types";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { formatTimeRemaining, expirationLevel, countdownBadgeClass } from "@/lib/expiration";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { MapPin, DollarSign, Plus, Clock, Lock, Search } from "lucide-react";
+import { MapPin, DollarSign, Plus, Lock, Search, Timer } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
 import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
@@ -47,11 +47,14 @@ export default function Feed() {
   }, [authLoading, user, navigate]);
 
   const fetchJobs = async () => {
-    // Use the public view that hides exact coordinates and address
+    // Use the public view that hides exact coordinates and address.
+    // Defense-in-depth: also exclude jobs whose listing timer has already passed
+    // (the cron job runs every 5 min, so we don't want a stale window between expiration and cleanup).
     const { data, error } = await supabase
       .from("jobs_public" as any)
       .select("*")
       .eq("status", "open")
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("created_at", { ascending: false });
     if (error) console.error(error);
     const list = (data as any as Job[]) ?? [];
@@ -473,9 +476,11 @@ export default function Feed() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", scheduleBadgeStyle(job.schedule_window))}>
-                          <Clock className="h-3 w-3" />{formatSchedule(job.scheduled_for, job.schedule_window)}
-                        </span>
+                        {job.expires_at && (
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", countdownBadgeClass(expirationLevel(job.expires_at)))}>
+                            <Timer className="h-3 w-3" />Expires in {formatTimeRemaining(job.expires_at)}
+                          </span>
+                        )}
                         {job.location_text && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />{job.location_text}

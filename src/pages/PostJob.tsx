@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { format } from "date-fns";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -11,19 +10,24 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CATEGORIES } from "@/lib/categories";
-import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } from "@/lib/schedule";
 import { DURATION_OPTIONS } from "@/lib/duration";
 import { fuzzCoord } from "@/lib/location";
+import {
+  DURATION_PRESETS_HOURS,
+  MIN_CUSTOM_HOURS,
+  MAX_CUSTOM_HOURS,
+  DEFAULT_DURATION_HOURS,
+  formatTimeRemaining,
+  countdownBadgeClass,
+  expirationLevel,
+} from "@/lib/expiration";
 import MapboxAddressSearch from "@/components/MapboxAddressSearch";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock } from "lucide-react";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { CreditCard, Lock, ShieldAlert, Sparkles, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock, Timer } from "lucide-react";
 import { categoryMeta } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
@@ -42,10 +46,10 @@ export default function PostJob() {
   const [submitting, setSubmitting] = useState(false);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: "" });
 
-  const [presetIdx, setPresetIdx] = useState(0);
-  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
-  const [customHour, setCustomHour] = useState<string>("09:00");
-  const [windowOverride, setWindowOverride] = useState<"urgent" | "window">("window");
+  // Listing timer (how long the post stays live on the feed/map)
+  const [durationHours, setDurationHours] = useState<number>(DEFAULT_DURATION_HOURS);
+  const [useCustomDuration, setUseCustomDuration] = useState(false);
+  const [customHours, setCustomHours] = useState<string>(String(DEFAULT_DURATION_HOURS));
 
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
@@ -66,7 +70,7 @@ export default function PostJob() {
   const refreshMyJobs = async (uid: string) => {
     const { data } = await supabase
       .from("jobs")
-      .select("id, title, status, budget, scheduled_for, schedule_window, category, created_at")
+      .select("id, title, status, budget, expires_at, category, created_at")
       .eq("poster_id", uid)
       .order("created_at", { ascending: false });
     setMyJobs(data ?? []);
@@ -102,17 +106,13 @@ export default function PostJob() {
     }
   };
 
-  const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
-  const isCustom = preset.kind === "custom";
-  const showWindowToggle = preset.kind === "tomorrow" || preset.kind === "custom";
-
-  const customCombined = useMemo(() => {
-    if (!customDate) return undefined;
-    const [h, m] = customHour.split(":").map(Number);
-    const d = new Date(customDate);
-    d.setHours(h || 9, m || 0, 0, 0);
-    return d;
-  }, [customDate, customHour]);
+  // Resolve the chosen listing duration (preset or custom). Returns null if invalid.
+  const resolveDurationHours = (): number | null => {
+    if (!useCustomDuration) return durationHours;
+    const n = Number(customHours);
+    if (!Number.isFinite(n) || n < MIN_CUSTOM_HOURS || n > MAX_CUSTOM_HOURS) return null;
+    return n;
+  };
 
   if (!authLoading && !user) {
     navigate("/auth");
@@ -127,12 +127,12 @@ export default function PostJob() {
       return;
     }
 
-    const { date, window } = presetToDate(preset, customCombined);
-    if (!date) { toast.error("Pick a date for your custom schedule"); return; }
-    if (date.getTime() > maxCustomDate().getTime() + 24 * 3600_000) {
-      toast.error("Custom dates can be at most 3 days out"); return;
+    const hours = resolveDurationHours();
+    if (hours == null) {
+      toast.error(`Listing timer must be between ${MIN_CUSTOM_HOURS} and ${MAX_CUSTOM_HOURS} hours`);
+      return;
     }
-    const finalWindow = showWindowToggle ? windowOverride : window;
+    const expiresAt = new Date(Date.now() + hours * 3600_000);
 
     setSubmitting(true);
     try {
@@ -161,8 +161,7 @@ export default function PostJob() {
         exact_lng: exact.lng,
         location_lat: fuzzed.lat,
         location_lng: fuzzed.lng,
-        scheduled_for: date.toISOString(),
-        schedule_window: finalWindow,
+        expires_at: expiresAt.toISOString(),
         tools_provided: toolsProvided,
         heavy_lifting: heavyLifting,
         environment,
@@ -170,7 +169,7 @@ export default function PostJob() {
         pro_only: proOnly,
       });
       if (insErr) throw insErr;
-      toast.success("Job posted! Neighbors can see it now.");
+      toast.success(`Job posted! It'll stay live for ${formatTimeRemaining(expiresAt.toISOString())}.`);
       navigate("/feed");
     } catch (err: any) {
       toast.error(err.message ?? "Could not post job");
@@ -298,74 +297,72 @@ export default function PostJob() {
             </div>
 
 
-            <div className="space-y-3">
-              <Label>When does it need to be done?</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {SCHEDULE_PRESETS.map((p, i) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => setPresetIdx(i)}
-                    className={cn(
-                      "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
-                      presetIdx === i
-                        ? "border-primary bg-primary-soft text-primary shadow-soft"
-                        : "border-border bg-card hover:border-primary/40"
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+            {/* Listing timer */}
+            <div className="space-y-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-5">
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-primary" />
+                <Label className="text-base font-extrabold">How long should this listing stay active?</Label>
+              </div>
+              <p className="-mt-1 text-xs text-muted-foreground">
+                When the timer runs out, your job automatically disappears from the feed and the map.
+              </p>
+
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {DURATION_PRESETS_HOURS.map((h) => {
+                  const active = !useCustomDuration && durationHours === h;
+                  return (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => { setUseCustomDuration(false); setDurationHours(h); }}
+                      className={cn(
+                        "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
+                        active
+                          ? "border-primary bg-primary-soft text-primary shadow-soft"
+                          : "border-border bg-card hover:border-primary/40"
+                      )}
+                    >
+                      {h === 24 ? "1 day" : `${h}h`}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setUseCustomDuration(true)}
+                  className={cn(
+                    "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
+                    useCustomDuration
+                      ? "border-primary bg-primary-soft text-primary shadow-soft"
+                      : "border-border bg-card hover:border-primary/40"
+                  )}
+                >
+                  Custom
+                </button>
               </div>
 
-              {isCustom && (
-                <div className="grid gap-3 rounded-2xl bg-muted/40 p-4 sm:grid-cols-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" className={cn("h-12 justify-start rounded-xl text-left font-semibold", !customDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {customDate ? format(customDate, "EEE, MMM d") : "Pick a day (max 3 days)"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customDate}
-                        onSelect={setCustomDate}
-                        disabled={(d) => d < new Date(new Date().setHours(0,0,0,0)) || d > maxCustomDate()}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Input type="time" value={customHour} onChange={(e) => setCustomHour(e.target.value)} className="h-12 rounded-xl text-base" />
+              {useCustomDuration && (
+                <div className="flex items-center gap-3 rounded-xl bg-card p-3">
+                  <Input
+                    type="number"
+                    min={MIN_CUSTOM_HOURS}
+                    max={MAX_CUSTOM_HOURS}
+                    value={customHours}
+                    onChange={(e) => setCustomHours(e.target.value)}
+                    className="h-11 max-w-[120px] rounded-xl text-base"
+                  />
+                  <span className="text-sm text-muted-foreground">hours (between {MIN_CUSTOM_HOURS} and {MAX_CUSTOM_HOURS})</span>
                 </div>
               )}
 
-              {showWindowToggle && (
-                <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setWindowOverride("urgent")}
-                    className={cn(
-                      "flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-smooth flex items-center justify-center gap-2",
-                      windowOverride === "urgent" ? "bg-primary text-primary-foreground shadow-soft" : "hover:bg-muted"
-                    )}
-                  >
-                    <Zap className="h-4 w-4" /> Urgent — done by then
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWindowOverride("window")}
-                    className={cn(
-                      "flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-smooth flex items-center justify-center gap-2",
-                      windowOverride === "window" ? "bg-accent text-accent-foreground shadow-soft" : "hover:bg-muted"
-                    )}
-                  >
-                    Flexible — within this window
-                  </button>
-                </div>
-              )}
+              <p className="rounded-xl bg-card px-3 py-2 text-xs font-semibold text-muted-foreground">
+                <span className="text-foreground">Listing will expire in </span>
+                <span className="text-primary">{
+                  (() => {
+                    const h = resolveDurationHours();
+                    return h == null ? "—" : formatTimeRemaining(new Date(Date.now() + h * 3600_000).toISOString());
+                  })()
+                }</span>
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -426,6 +423,7 @@ export default function PostJob() {
                   completed: "Completed",
                   cancelled: "Cancelled",
                   disputed: "Disputed",
+                  expired: "Expired",
                 };
                 const statusStyle: Record<string, string> = {
                   open: "bg-primary-soft text-primary border-primary/30",
@@ -433,7 +431,10 @@ export default function PostJob() {
                   completed: "bg-secondary text-secondary-foreground border-border",
                   cancelled: "bg-muted text-muted-foreground border-border",
                   disputed: "bg-destructive/15 text-destructive border-destructive/30",
+                  expired: "bg-muted text-muted-foreground border-border",
                 };
+                const level = expirationLevel(j.expires_at);
+                const timerLabel = j.status === "open" ? formatTimeRemaining(j.expires_at) : null;
                 return (
                   <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -446,9 +447,11 @@ export default function PostJob() {
                           <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-bold", statusStyle[j.status] ?? statusStyle.open)}>
                             {statusLabel[j.status] ?? j.status}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            <Clock className="h-3 w-3" />{formatSchedule(j.scheduled_for, j.schedule_window)}
-                          </span>
+                          {timerLabel && (
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold", countdownBadgeClass(level))}>
+                              <Timer className="h-3 w-3" />{timerLabel === "Expired" ? "Expired" : `Expires in ${timerLabel}`}
+                            </span>
+                          )}
                           <span className="font-bold text-foreground">${Number(j.budget).toFixed(0)}</span>
                         </div>
                       </div>

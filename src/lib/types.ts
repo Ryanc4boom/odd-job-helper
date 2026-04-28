@@ -2,7 +2,7 @@ export type trust_grade = "A" | "B" | "C" | "D" | "F";
 
 export type ScheduleWindow = "now" | "urgent" | "window";
 
-export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed";
+export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed" | "expired";
 
 export type Environment = "indoor" | "outdoor" | "both";
 
@@ -28,7 +28,8 @@ export type Job = {
   location_lng: number | null;
   status: JobStatus;
   scheduled_for: string | null;
-  schedule_window: ScheduleWindow;
+  schedule_window: ScheduleWindow | null;
+  expires_at: string | null;
   created_at: string;
   // Requirements checklist
   tools_provided: boolean;
