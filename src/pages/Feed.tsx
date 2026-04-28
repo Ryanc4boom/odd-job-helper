@@ -78,7 +78,7 @@ export default function Feed() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const circleSourcesRef = useRef<string[]>([]);
-  const [mapTab, setMapTab] = useState<string>("list");
+  const [mapTab, setMapTab] = useState<string>("map");
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -365,7 +365,7 @@ export default function Feed() {
                   Loading map…
                 </div>
               ) : null}
-              <div ref={mapContainerRef} className="absolute inset-0" />
+              <div ref={setMapContainer} className="absolute inset-0 h-full w-full" />
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" /> For privacy, jobs show a ~500m neighborhood circle — never an exact address.
