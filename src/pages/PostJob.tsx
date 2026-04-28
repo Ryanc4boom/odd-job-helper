@@ -423,6 +423,7 @@ export default function PostJob() {
                   completed: "Completed",
                   cancelled: "Cancelled",
                   disputed: "Disputed",
+                  expired: "Expired",
                 };
                 const statusStyle: Record<string, string> = {
                   open: "bg-primary-soft text-primary border-primary/30",
@@ -430,7 +431,10 @@ export default function PostJob() {
                   completed: "bg-secondary text-secondary-foreground border-border",
                   cancelled: "bg-muted text-muted-foreground border-border",
                   disputed: "bg-destructive/15 text-destructive border-destructive/30",
+                  expired: "bg-muted text-muted-foreground border-border",
                 };
+                const level = expirationLevel(j.expires_at);
+                const timerLabel = j.status === "open" ? formatTimeRemaining(j.expires_at) : null;
                 return (
                   <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -443,9 +447,11 @@ export default function PostJob() {
                           <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 font-bold", statusStyle[j.status] ?? statusStyle.open)}>
                             {statusLabel[j.status] ?? j.status}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            <Clock className="h-3 w-3" />{formatSchedule(j.scheduled_for, j.schedule_window)}
-                          </span>
+                          {timerLabel && (
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold", countdownBadgeClass(level))}>
+                              <Timer className="h-3 w-3" />{timerLabel === "Expired" ? "Expired" : `Expires in ${timerLabel}`}
+                            </span>
+                          )}
                           <span className="font-bold text-foreground">${Number(j.budget).toFixed(0)}</span>
                         </div>
                       </div>
