@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { format } from "date-fns";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -11,19 +10,24 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CATEGORIES } from "@/lib/categories";
-import { SCHEDULE_PRESETS, presetToDate, maxCustomDate, type SchedulePreset } from "@/lib/schedule";
 import { DURATION_OPTIONS } from "@/lib/duration";
 import { fuzzCoord } from "@/lib/location";
+import {
+  DURATION_PRESETS_HOURS,
+  MIN_CUSTOM_HOURS,
+  MAX_CUSTOM_HOURS,
+  DEFAULT_DURATION_HOURS,
+  formatTimeRemaining,
+  countdownBadgeClass,
+  expirationLevel,
+} from "@/lib/expiration";
 import MapboxAddressSearch from "@/components/MapboxAddressSearch";
 import { toast } from "sonner";
-import { CalendarIcon, CreditCard, Lock, ShieldAlert, Sparkles, Zap, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock } from "lucide-react";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { CreditCard, Lock, ShieldAlert, Sparkles, ClipboardCheck, Wrench, Dumbbell, Sun, BadgeCheck, Briefcase, XCircle, Clock, Timer } from "lucide-react";
 import { categoryMeta } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
