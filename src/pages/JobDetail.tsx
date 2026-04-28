@@ -18,7 +18,7 @@ import {
 import TrustBadge from "@/components/TrustBadge";
 import ProBadge from "@/components/ProBadge";
 import { categoryMeta } from "@/lib/categories";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { formatTimeRemaining, expirationLevel, countdownBadgeClass } from "@/lib/expiration";
 import { durationLabel } from "@/lib/duration";
 import type { Job, JobRequest, Profile, AIVerification, DoerRestriction } from "@/lib/types";
 import {
