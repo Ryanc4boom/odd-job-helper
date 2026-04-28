@@ -247,7 +247,7 @@ export default function Feed() {
         {/* Worker incentive */}
         <div className="mb-6 flex items-start gap-3 rounded-2xl bg-accent-soft p-4 text-sm">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground font-extrabold">A</span>
-          <p className="text-accent-foreground/90">
+          <p className="text-secondary-foreground">
             <span className="font-bold">Your Trust Grade and profile are shared with clients</span> to help them choose you — do a great job to keep your grade high!
           </p>
         </div>
