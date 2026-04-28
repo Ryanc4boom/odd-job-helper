@@ -369,16 +369,26 @@ export default function PostJob() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="loc">Neighborhood (shown publicly)</Label>
-              <Input id="loc" value={form.location_text} onChange={(e) => setForm({ ...form, location_text: e.target.value })} placeholder="Mission District, near Dolores Park" maxLength={120} className="h-12 rounded-xl text-base" />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="addr" className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-accent" /> Exact street address (private)
               </Label>
-              <Input id="addr" value={form.address_exact} onChange={(e) => setForm({ ...form, address_exact: e.target.value })} placeholder="123 Valencia St, Apt 4" maxLength={200} className="h-12 rounded-xl text-base" />
-              <p className="text-xs text-muted-foreground">Only revealed to a helper after you accept their request.</p>
+              <MapboxAddressSearch
+                token={mapboxToken}
+                value={form.address_exact}
+                onChange={(val) => {
+                  setForm({ ...form, address_exact: val });
+                  if (selectedCoords) setSelectedCoords(null);
+                }}
+                onSelect={({ address, lat, lng }) => {
+                  setForm({ ...form, address_exact: address });
+                  setSelectedCoords({ lat, lng });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {selectedCoords
+                  ? "✓ Address confirmed — only revealed to a helper after you accept their request."
+                  : "Search and select your Glen Ellyn address from the dropdown. Only revealed to a helper after you accept."}
+              </p>
             </div>
 
             <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm">
