@@ -28,7 +28,8 @@ export type Job = {
   location_lng: number | null;
   status: JobStatus;
   scheduled_for: string | null;
-  schedule_window: ScheduleWindow;
+  schedule_window: ScheduleWindow | null;
+  expires_at: string | null;
   created_at: string;
   // Requirements checklist
   tools_provided: boolean;
