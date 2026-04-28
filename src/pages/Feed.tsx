@@ -98,43 +98,61 @@ export default function Feed() {
     });
   }, [user, mapboxToken]);
 
-  // Initialize Mapbox map via callback ref (fires when div mounts after tab switch)
+  // Callback ref: init Mapbox when the container mounts; tear it down when it unmounts.
+  // Radix Tabs unmounts inactive panels, so this fires every time the user toggles tabs.
   const setMapContainer = (node: HTMLDivElement | null) => {
+    if (node === mapContainerRef.current) return;
+
+    // Container is leaving the DOM — clean up the existing map instance.
+    if (!node && mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+      markersRef.current = [];
+      circleSourcesRef.current = [];
+    }
+
     mapContainerRef.current = node;
-    if (!node || !mapboxToken || mapRef.current) return;
-    mapboxgl.accessToken = mapboxToken;
-    const map = new mapboxgl.Map({
-      container: node,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: GLEN_ELLYN, // [-88.0678, 41.8775] => Glen Ellyn, IL
-      zoom: 13,
-    });
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-    map.on("load", () => map.resize());
-    mapRef.current = map;
+
+    // Container just mounted — initialize the map.
+    if (node && mapboxToken && !mapRef.current) {
+      mapboxgl.accessToken = mapboxToken;
+      const map = new mapboxgl.Map({
+        container: node,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: GLEN_ELLYN, // [-88.0678, 41.8775] => Glen Ellyn, IL
+        zoom: 13,
+      });
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("load", () => map.resize());
+      mapRef.current = map;
+    }
   };
 
-  // If token arrives after container mounts, initialize then
+  // If the token arrives after the container is already mounted, initialize then.
   useEffect(() => {
     if (mapboxToken && mapContainerRef.current && !mapRef.current) {
-      setMapContainer(mapContainerRef.current);
+      const node = mapContainerRef.current;
+      mapContainerRef.current = null; // force setMapContainer to treat as new mount
+      setMapContainer(node);
     }
-    return () => {
-      if (!mapContainerRef.current) {
-        mapRef.current?.remove();
-        mapRef.current = null;
-        markersRef.current = [];
-        circleSourcesRef.current = [];
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapboxToken]);
 
-  // Resize whenever the Map tab becomes visible
+  // Final cleanup on full component unmount (prevents WebGL context leaks).
   useEffect(() => {
-    if (mapTab === "map" && mapRef.current) {
-      requestAnimationFrame(() => mapRef.current?.resize());
-    }
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+      markersRef.current = [];
+      circleSourcesRef.current = [];
+    };
+  }, []);
+
+  // Force resize when the Map tab becomes active (container may have been 0x0 mid-transition).
+  useEffect(() => {
+    if (mapTab !== "map") return;
+    const t = setTimeout(() => mapRef.current?.resize(), 100);
+    return () => clearTimeout(t);
   }, [mapTab]);
 
   // Add/refresh markers + privacy circles whenever jobs or map change
