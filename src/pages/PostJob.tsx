@@ -32,8 +32,7 @@ const schema = z.object({
   description: z.string().trim().min(20, "Tell neighbors what you need (20+ chars)").max(800),
   category: z.string(),
   budget: z.coerce.number().min(0).max(10000),
-  location_text: z.string().trim().max(120).optional(),
-  address_exact: z.string().trim().min(5, "Add an exact street address — only revealed to your accepted helper").max(200),
+  address_exact: z.string().trim().min(5, "Pick your exact street address from the dropdown").max(200),
   estimated_duration: z.string().min(1, "Estimate how long the job should take"),
 });
 
