@@ -14,22 +14,25 @@ import type { Job } from "@/lib/types";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { renderToStaticMarkup } from "react-dom/server";
 import { MapPin, DollarSign, Plus, Clock, Lock, Search } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
 import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const GLEN_ELLYN: [number, number] = [-88.0678, 41.8775]; // [lng, lat] for Mapbox
+const JOBS_SOURCE_ID = "jobs-source";
+const CLUSTER_RADIUS_LAYER = "jobs-cluster-radius";
+const CLUSTER_STROKE_LAYER = "jobs-cluster-stroke";
+const SINGLE_RADIUS_LAYER = "jobs-single-radius";
+const SINGLE_STROKE_LAYER = "jobs-single-stroke";
 
-function categoryMarkerEl(category: JobCategory) {
-  const meta = categoryMeta(category);
-  const Icon = meta.icon;
-  const el = document.createElement("div");
-  el.className = "job-pin";
-  el.style.background = meta.color;
-  el.innerHTML = renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />);
-  return el;
+// Convert meters to pixel radius at a given latitude/zoom for circle layer rendering.
+// Mapbox circle layer takes a pixel radius, so we convert from meters using the
+// Web Mercator scale at the layer's latitude. We use an interpolated expression
+// so circles stay ~constant in real-world meters as the user zooms.
+function metersToPixelsAtMaxZoom(meters: number, latitude: number) {
+  return meters / 0.075 / Math.cos((latitude * Math.PI) / 180);
 }
 
 export default function Feed() {
