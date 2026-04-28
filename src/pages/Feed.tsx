@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
@@ -8,22 +8,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { categoryMeta, CATEGORIES, type JobCategory } from "@/lib/categories";
 import type { Job } from "@/lib/types";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
-import L from "leaflet";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapPin, DollarSign, Plus, Clock, Lock, Sparkles } from "lucide-react";
+import { MapPin, DollarSign, Plus, Clock, Lock, Search } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
 import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
 
-function buildIcon(category: JobCategory) {
+const GLEN_ELLYN: [number, number] = [-88.0678, 41.8775]; // [lng, lat] for Mapbox
+
+function categoryMarkerEl(category: JobCategory) {
   const meta = categoryMeta(category);
   const Icon = meta.icon;
-  const html = `<div class="job-pin" style="background:${meta.color}">${renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />)}</div>`;
-  return L.divIcon({ html, className: "", iconSize: [36, 36], iconAnchor: [18, 18] });
+  const el = document.createElement("div");
+  el.className = "job-pin";
+  el.style.background = meta.color;
+  el.innerHTML = renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />);
+  return el;
 }
 
 export default function Feed() {
