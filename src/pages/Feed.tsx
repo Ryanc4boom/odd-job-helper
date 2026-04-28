@@ -73,13 +73,143 @@ export default function Feed() {
       });
   }, [user]);
 
-  const center = useMemo<[number, number]>(() => {
-    const withLoc = jobs.filter((j) => j.location_lat && j.location_lng);
-    if (withLoc.length === 0) return [37.7749, -122.4194];
-    const lat = withLoc.reduce((s, j) => s + (j.location_lat ?? 0), 0) / withLoc.length;
-    const lng = withLoc.reduce((s, j) => s + (j.location_lng ?? 0), 0) / withLoc.length;
-    return [lat, lng];
-  }, [jobs]);
+  // Mapbox state
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const circleSourcesRef = useRef<string[]>([]);
+  const [mapTab, setMapTab] = useState<string>("list");
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; place_name: string; center: [number, number] }>>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Fetch Mapbox token from edge function
+  useEffect(() => {
+    if (!user || mapboxToken) return;
+    supabase.functions.invoke("get-mapbox-token").then(({ data, error }) => {
+      if (error || !data?.token) {
+        setMapboxError("Could not load map. Please try again later.");
+        console.error("Mapbox token fetch failed", error);
+        return;
+      }
+      setMapboxToken(data.token);
+    });
+  }, [user, mapboxToken]);
+
+  // Initialize Mapbox map when token is ready and map tab is visible
+  useEffect(() => {
+    if (!mapboxToken || mapTab !== "map" || !mapContainerRef.current || mapRef.current) return;
+    mapboxgl.accessToken = mapboxToken;
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: GLEN_ELLYN,
+      zoom: 13,
+    });
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    mapRef.current = map;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markersRef.current = [];
+      circleSourcesRef.current = [];
+    };
+  }, [mapboxToken, mapTab]);
+
+  // Add/refresh markers + privacy circles whenever jobs or map change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      circleSourcesRef.current.forEach((id) => {
+        if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getLayer(id + "-stroke")) map.removeLayer(id + "-stroke");
+        if (map.getSource(id)) map.removeSource(id);
+      });
+      circleSourcesRef.current = [];
+
+      jobs.filter((j) => j.location_lat && j.location_lng).forEach((j) => {
+        const meta = categoryMeta(j.category);
+        const lng = j.location_lng!;
+        const lat = j.location_lat!;
+        const sourceId = `job-circle-${j.id}`;
+        const points = 64;
+        const radiusKm = 0.5;
+        const coords: [number, number][] = [];
+        const distanceX = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+        const distanceY = radiusKm / 110.574;
+        for (let i = 0; i < points; i++) {
+          const theta = (i / points) * (2 * Math.PI);
+          coords.push([lng + distanceX * Math.cos(theta), lat + distanceY * Math.sin(theta)]);
+        }
+        coords.push(coords[0]);
+        map.addSource(sourceId, {
+          type: "geojson",
+          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [coords] } },
+        });
+        map.addLayer({ id: sourceId, type: "fill", source: sourceId, paint: { "fill-color": meta.color, "fill-opacity": 0.15 } });
+        map.addLayer({ id: sourceId + "-stroke", type: "line", source: sourceId, paint: { "line-color": meta.color, "line-width": 2 } });
+        circleSourcesRef.current.push(sourceId);
+
+        const popupHtml = `
+          <div style="font-family: inherit; min-width: 180px;">
+            <p style="font-weight: 800; margin: 0;">${j.title.replace(/</g, "&lt;")}</p>
+            <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">$${Number(j.budget).toFixed(0)} · ${meta.label}</p>
+            <p style="font-size: 11px; font-style: italic; color: #6b7280; margin: 4px 0 0;">Approximate area — exact address shared after acceptance</p>
+            <a href="/jobs/${j.id}" style="display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700; color: hsl(var(--primary)); text-decoration: underline;">View & request →</a>
+          </div>`;
+        const marker = new mapboxgl.Marker({ element: categoryMarkerEl(j.category) })
+          .setLngLat([lng, lat])
+          .setPopup(new mapboxgl.Popup({ offset: 18 }).setHTML(popupHtml))
+          .addTo(map);
+        markersRef.current.push(marker);
+      });
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+  }, [jobs, mapboxToken, mapTab]);
+
+  // Geocoding search (Glen Ellyn-focused)
+  useEffect(() => {
+    if (!mapboxToken || searchQuery.trim().length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+          searchQuery
+        )}.json?access_token=${mapboxToken}&proximity=${GLEN_ELLYN[0]},${GLEN_ELLYN[1]}&bbox=-88.15,41.83,-87.99,41.92&limit=5&country=US`;
+        const res = await fetch(url);
+        const json = await res.json();
+        setSearchResults(
+          (json.features ?? []).map((f: any) => ({ id: f.id, place_name: f.place_name, center: f.center }))
+        );
+      } catch (e) {
+        console.error("Geocoding failed", e);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery, mapboxToken]);
+
+  const flyToResult = (center: [number, number], place_name: string) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({ center, zoom: 16, essential: true });
+    new mapboxgl.Popup({ offset: 12 })
+      .setLngLat(center)
+      .setHTML(`<div style="font-family: inherit; font-size: 12px;">${place_name}</div>`)
+      .addTo(map);
+    setSearchResults([]);
+    setSearchQuery(place_name);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
