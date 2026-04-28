@@ -233,7 +233,7 @@ export default function Feed() {
           </p>
         </div>
 
-        <Tabs defaultValue="list">
+        <Tabs value={mapTab} onValueChange={setMapTab}>
           <TabsList className="rounded-2xl">
             <TabsTrigger value="list" className="rounded-xl">List</TabsTrigger>
             <TabsTrigger value="map" className="rounded-xl">Map</TabsTrigger>
@@ -304,35 +304,49 @@ export default function Feed() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-6">
-            <div className="h-[600px] overflow-hidden rounded-3xl border border-border shadow-card">
-              <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Glen Ellyn addresses or places…"
+                  className="h-12 rounded-2xl pl-11"
+                  disabled={!mapboxToken}
                 />
-                {jobs.filter((j) => j.location_lat && j.location_lng).map((j) => {
-                  const meta = categoryMeta(j.category);
-                  return (
-                    <div key={j.id}>
-                      <Circle
-                        center={[j.location_lat!, j.location_lng!]}
-                        radius={500}
-                        pathOptions={{ color: meta.color, fillColor: meta.color, fillOpacity: 0.15, weight: 2 }}
-                      />
-                      <Marker position={[j.location_lat!, j.location_lng!]} icon={buildIcon(j.category)}>
-                        <Popup>
-                          <div className="font-sans">
-                            <p className="font-extrabold">{j.title}</p>
-                            <p className="text-xs text-muted-foreground">${Number(j.budget).toFixed(0)} · {meta.label}</p>
-                            <p className="mt-1 text-[11px] italic text-muted-foreground">Approximate area — exact address shared after acceptance</p>
-                            <Link to={`/jobs/${j.id}`} className="mt-2 inline-block text-xs font-bold text-primary underline">View & request →</Link>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </div>
-                  );
-                })}
-              </MapContainer>
+              </div>
+              {searchResults.length > 0 && (
+                <div className="absolute z-[1000] mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+                  {searchResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => flyToResult(r.center, r.place_name)}
+                      className="flex w-full items-start gap-2 px-4 py-3 text-left text-sm transition-smooth hover:bg-muted"
+                    >
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span>{r.place_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {searching && searchResults.length === 0 && searchQuery.length >= 3 && (
+                <p className="absolute mt-2 text-xs text-muted-foreground">Searching…</p>
+              )}
+            </div>
+
+            <div className="relative h-[600px] overflow-hidden rounded-3xl border border-border shadow-card">
+              {mapboxError ? (
+                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  {mapboxError}
+                </div>
+              ) : !mapboxToken ? (
+                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  Loading map…
+                </div>
+              ) : null}
+              <div ref={mapContainerRef} className="absolute inset-0" />
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" /> For privacy, jobs show a ~500m neighborhood circle — never an exact address.
