@@ -463,9 +463,11 @@ function JobRow({ job, requestStatus }: { job: any; requestStatus?: string }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">{job.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold", scheduleBadgeStyle(job.schedule_window))}>
-              {formatSchedule(job.scheduled_for, job.schedule_window)}
-            </span>
+            {job.expires_at && job.status === "open" && (
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold", countdownBadgeClass(expirationLevel(job.expires_at)))}>
+                {formatTimeRemaining(job.expires_at)}
+              </span>
+            )}
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
               ${Number(job.budget).toFixed(0)}
             </span>
