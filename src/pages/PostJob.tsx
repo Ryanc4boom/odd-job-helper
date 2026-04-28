@@ -297,74 +297,72 @@ export default function PostJob() {
             </div>
 
 
-            <div className="space-y-3">
-              <Label>When does it need to be done?</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {SCHEDULE_PRESETS.map((p, i) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => setPresetIdx(i)}
-                    className={cn(
-                      "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
-                      presetIdx === i
-                        ? "border-primary bg-primary-soft text-primary shadow-soft"
-                        : "border-border bg-card hover:border-primary/40"
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+            {/* Listing timer */}
+            <div className="space-y-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 p-5">
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-primary" />
+                <Label className="text-base font-extrabold">How long should this listing stay active?</Label>
+              </div>
+              <p className="-mt-1 text-xs text-muted-foreground">
+                When the timer runs out, your job automatically disappears from the feed and the map.
+              </p>
+
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {DURATION_PRESETS_HOURS.map((h) => {
+                  const active = !useCustomDuration && durationHours === h;
+                  return (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => { setUseCustomDuration(false); setDurationHours(h); }}
+                      className={cn(
+                        "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
+                        active
+                          ? "border-primary bg-primary-soft text-primary shadow-soft"
+                          : "border-border bg-card hover:border-primary/40"
+                      )}
+                    >
+                      {h === 24 ? "1 day" : `${h}h`}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setUseCustomDuration(true)}
+                  className={cn(
+                    "rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-smooth",
+                    useCustomDuration
+                      ? "border-primary bg-primary-soft text-primary shadow-soft"
+                      : "border-border bg-card hover:border-primary/40"
+                  )}
+                >
+                  Custom
+                </button>
               </div>
 
-              {isCustom && (
-                <div className="grid gap-3 rounded-2xl bg-muted/40 p-4 sm:grid-cols-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" className={cn("h-12 justify-start rounded-xl text-left font-semibold", !customDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {customDate ? format(customDate, "EEE, MMM d") : "Pick a day (max 3 days)"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customDate}
-                        onSelect={setCustomDate}
-                        disabled={(d) => d < new Date(new Date().setHours(0,0,0,0)) || d > maxCustomDate()}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Input type="time" value={customHour} onChange={(e) => setCustomHour(e.target.value)} className="h-12 rounded-xl text-base" />
+              {useCustomDuration && (
+                <div className="flex items-center gap-3 rounded-xl bg-card p-3">
+                  <Input
+                    type="number"
+                    min={MIN_CUSTOM_HOURS}
+                    max={MAX_CUSTOM_HOURS}
+                    value={customHours}
+                    onChange={(e) => setCustomHours(e.target.value)}
+                    className="h-11 max-w-[120px] rounded-xl text-base"
+                  />
+                  <span className="text-sm text-muted-foreground">hours (between {MIN_CUSTOM_HOURS} and {MAX_CUSTOM_HOURS})</span>
                 </div>
               )}
 
-              {showWindowToggle && (
-                <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setWindowOverride("urgent")}
-                    className={cn(
-                      "flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-smooth flex items-center justify-center gap-2",
-                      windowOverride === "urgent" ? "bg-primary text-primary-foreground shadow-soft" : "hover:bg-muted"
-                    )}
-                  >
-                    <Zap className="h-4 w-4" /> Urgent — done by then
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWindowOverride("window")}
-                    className={cn(
-                      "flex-1 rounded-xl px-4 py-3 text-sm font-bold transition-smooth flex items-center justify-center gap-2",
-                      windowOverride === "window" ? "bg-accent text-accent-foreground shadow-soft" : "hover:bg-muted"
-                    )}
-                  >
-                    Flexible — within this window
-                  </button>
-                </div>
-              )}
+              <p className="rounded-xl bg-card px-3 py-2 text-xs font-semibold text-muted-foreground">
+                <span className="text-foreground">Listing will expire in </span>
+                <span className="text-primary">{
+                  (() => {
+                    const h = resolveDurationHours();
+                    return h == null ? "—" : formatTimeRemaining(new Date(Date.now() + h * 3600_000).toISOString());
+                  })()
+                }</span>
+              </p>
             </div>
 
             <div className="space-y-2">
