@@ -102,6 +102,7 @@ export type Database = {
           estimated_duration: string | null
           exact_lat: number | null
           exact_lng: number | null
+          expires_at: string | null
           finished_at: string | null
           heavy_lifting: boolean
           id: string
@@ -110,7 +111,7 @@ export type Database = {
           location_text: string | null
           poster_id: string
           pro_only: boolean
-          schedule_window: string
+          schedule_window: string | null
           scheduled_for: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["job_status"]
@@ -136,6 +137,7 @@ export type Database = {
           estimated_duration?: string | null
           exact_lat?: number | null
           exact_lng?: number | null
+          expires_at?: string | null
           finished_at?: string | null
           heavy_lifting?: boolean
           id?: string
@@ -144,7 +146,7 @@ export type Database = {
           location_text?: string | null
           poster_id: string
           pro_only?: boolean
-          schedule_window?: string
+          schedule_window?: string | null
           scheduled_for?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -170,6 +172,7 @@ export type Database = {
           estimated_duration?: string | null
           exact_lat?: number | null
           exact_lng?: number | null
+          expires_at?: string | null
           finished_at?: string | null
           heavy_lifting?: boolean
           id?: string
@@ -178,7 +181,7 @@ export type Database = {
           location_text?: string | null
           poster_id?: string
           pro_only?: boolean
-          schedule_window?: string
+          schedule_window?: string | null
           scheduled_for?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
@@ -355,6 +358,7 @@ export type Database = {
           doer_id: string | null
           environment: string | null
           estimated_duration: string | null
+          expires_at: string | null
           finished_at: string | null
           heavy_lifting: boolean | null
           id: string | null
@@ -385,6 +389,7 @@ export type Database = {
           doer_id?: string | null
           environment?: string | null
           estimated_duration?: string | null
+          expires_at?: string | null
           finished_at?: string | null
           heavy_lifting?: boolean | null
           id?: string | null
@@ -415,6 +420,7 @@ export type Database = {
           doer_id?: string | null
           environment?: string | null
           estimated_duration?: string | null
+          expires_at?: string | null
           finished_at?: string | null
           heavy_lifting?: boolean | null
           id?: string | null
@@ -435,6 +441,7 @@ export type Database = {
       }
     }
     Functions: {
+      expire_stale_jobs: { Args: never; Returns: undefined }
       get_doer_restriction: {
         Args: { _doer_id: string }
         Returns: {
