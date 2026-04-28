@@ -477,6 +477,7 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "disputed"
+        | "expired"
       trust_grade: "A" | "B" | "C" | "D" | "F"
     }
     CompositeTypes: {
@@ -616,7 +617,14 @@ export const Constants = {
         "assembly",
         "other",
       ],
-      job_status: ["open", "in_progress", "completed", "cancelled", "disputed"],
+      job_status: [
+        "open",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "disputed",
+        "expired",
+      ],
       trust_grade: ["A", "B", "C", "D", "F"],
     },
   },
