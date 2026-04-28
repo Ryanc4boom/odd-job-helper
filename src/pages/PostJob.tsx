@@ -46,10 +46,10 @@ export default function PostJob() {
   const [submitting, setSubmitting] = useState(false);
   const [blocked, setBlocked] = useState<{ open: boolean; reason: string }>({ open: false, reason: "" });
 
-  const [presetIdx, setPresetIdx] = useState(0);
-  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
-  const [customHour, setCustomHour] = useState<string>("09:00");
-  const [windowOverride, setWindowOverride] = useState<"urgent" | "window">("window");
+  // Listing timer (how long the post stays live on the feed/map)
+  const [durationHours, setDurationHours] = useState<number>(DEFAULT_DURATION_HOURS);
+  const [useCustomDuration, setUseCustomDuration] = useState(false);
+  const [customHours, setCustomHours] = useState<string>(String(DEFAULT_DURATION_HOURS));
 
   const [form, setForm] = useState({
     title: "", description: "", category: "other", budget: "20",
@@ -70,7 +70,7 @@ export default function PostJob() {
   const refreshMyJobs = async (uid: string) => {
     const { data } = await supabase
       .from("jobs")
-      .select("id, title, status, budget, scheduled_for, schedule_window, category, created_at")
+      .select("id, title, status, budget, expires_at, category, created_at")
       .eq("poster_id", uid)
       .order("created_at", { ascending: false });
     setMyJobs(data ?? []);
