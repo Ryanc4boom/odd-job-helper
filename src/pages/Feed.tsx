@@ -78,7 +78,7 @@ export default function Feed() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const circleSourcesRef = useRef<string[]>([]);
-  const [mapTab, setMapTab] = useState<string>("list");
+  const [mapTab, setMapTab] = useState<string>("map");
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,25 +98,44 @@ export default function Feed() {
     });
   }, [user, mapboxToken]);
 
-  // Initialize Mapbox map when token is ready and map tab is visible
-  useEffect(() => {
-    if (!mapboxToken || mapTab !== "map" || !mapContainerRef.current || mapRef.current) return;
+  // Initialize Mapbox map via callback ref (fires when div mounts after tab switch)
+  const setMapContainer = (node: HTMLDivElement | null) => {
+    mapContainerRef.current = node;
+    if (!node || !mapboxToken || mapRef.current) return;
     mapboxgl.accessToken = mapboxToken;
     const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
+      container: node,
       style: "mapbox://styles/mapbox/streets-v12",
-      center: GLEN_ELLYN,
+      center: GLEN_ELLYN, // [-88.0678, 41.8775] => Glen Ellyn, IL
       zoom: 13,
     });
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    map.on("load", () => map.resize());
     mapRef.current = map;
+  };
+
+  // If token arrives after container mounts, initialize then
+  useEffect(() => {
+    if (mapboxToken && mapContainerRef.current && !mapRef.current) {
+      setMapContainer(mapContainerRef.current);
+    }
     return () => {
-      map.remove();
-      mapRef.current = null;
-      markersRef.current = [];
-      circleSourcesRef.current = [];
+      if (!mapContainerRef.current) {
+        mapRef.current?.remove();
+        mapRef.current = null;
+        markersRef.current = [];
+        circleSourcesRef.current = [];
+      }
     };
-  }, [mapboxToken, mapTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapboxToken]);
+
+  // Resize whenever the Map tab becomes visible
+  useEffect(() => {
+    if (mapTab === "map" && mapRef.current) {
+      requestAnimationFrame(() => mapRef.current?.resize());
+    }
+  }, [mapTab]);
 
   // Add/refresh markers + privacy circles whenever jobs or map change
   useEffect(() => {
@@ -346,7 +365,7 @@ export default function Feed() {
                   Loading map…
                 </div>
               ) : null}
-              <div ref={mapContainerRef} className="absolute inset-0" />
+              <div ref={setMapContainer} className="absolute inset-0 h-full w-full" />
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" /> For privacy, jobs show a ~500m neighborhood circle — never an exact address.
