@@ -476,9 +476,11 @@ export default function Feed() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", scheduleBadgeStyle(job.schedule_window))}>
-                          <Clock className="h-3 w-3" />{formatSchedule(job.scheduled_for, job.schedule_window)}
-                        </span>
+                        {job.expires_at && (
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", countdownBadgeClass(expirationLevel(job.expires_at)))}>
+                            <Timer className="h-3 w-3" />Expires in {formatTimeRemaining(job.expires_at)}
+                          </span>
+                        )}
                         {job.location_text && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />{job.location_text}
