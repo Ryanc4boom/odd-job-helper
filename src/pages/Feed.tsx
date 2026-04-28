@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
@@ -8,22 +8,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { categoryMeta, CATEGORIES, type JobCategory } from "@/lib/categories";
 import type { Job } from "@/lib/types";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
-import L from "leaflet";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapPin, DollarSign, Plus, Clock, Lock, Sparkles } from "lucide-react";
+import { MapPin, DollarSign, Plus, Clock, Lock, Search } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
 import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
 
-function buildIcon(category: JobCategory) {
+const GLEN_ELLYN: [number, number] = [-88.0678, 41.8775]; // [lng, lat] for Mapbox
+
+function categoryMarkerEl(category: JobCategory) {
   const meta = categoryMeta(category);
   const Icon = meta.icon;
-  const html = `<div class="job-pin" style="background:${meta.color}">${renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />)}</div>`;
-  return L.divIcon({ html, className: "", iconSize: [36, 36], iconAnchor: [18, 18] });
+  const el = document.createElement("div");
+  el.className = "job-pin";
+  el.style.background = meta.color;
+  el.innerHTML = renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />);
+  return el;
 }
 
 export default function Feed() {
@@ -67,13 +73,143 @@ export default function Feed() {
       });
   }, [user]);
 
-  const center = useMemo<[number, number]>(() => {
-    const withLoc = jobs.filter((j) => j.location_lat && j.location_lng);
-    if (withLoc.length === 0) return [37.7749, -122.4194];
-    const lat = withLoc.reduce((s, j) => s + (j.location_lat ?? 0), 0) / withLoc.length;
-    const lng = withLoc.reduce((s, j) => s + (j.location_lng ?? 0), 0) / withLoc.length;
-    return [lat, lng];
-  }, [jobs]);
+  // Mapbox state
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const circleSourcesRef = useRef<string[]>([]);
+  const [mapTab, setMapTab] = useState<string>("list");
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; place_name: string; center: [number, number] }>>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Fetch Mapbox token from edge function
+  useEffect(() => {
+    if (!user || mapboxToken) return;
+    supabase.functions.invoke("get-mapbox-token").then(({ data, error }) => {
+      if (error || !data?.token) {
+        setMapboxError("Could not load map. Please try again later.");
+        console.error("Mapbox token fetch failed", error);
+        return;
+      }
+      setMapboxToken(data.token);
+    });
+  }, [user, mapboxToken]);
+
+  // Initialize Mapbox map when token is ready and map tab is visible
+  useEffect(() => {
+    if (!mapboxToken || mapTab !== "map" || !mapContainerRef.current || mapRef.current) return;
+    mapboxgl.accessToken = mapboxToken;
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: GLEN_ELLYN,
+      zoom: 13,
+    });
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    mapRef.current = map;
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markersRef.current = [];
+      circleSourcesRef.current = [];
+    };
+  }, [mapboxToken, mapTab]);
+
+  // Add/refresh markers + privacy circles whenever jobs or map change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      circleSourcesRef.current.forEach((id) => {
+        if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getLayer(id + "-stroke")) map.removeLayer(id + "-stroke");
+        if (map.getSource(id)) map.removeSource(id);
+      });
+      circleSourcesRef.current = [];
+
+      jobs.filter((j) => j.location_lat && j.location_lng).forEach((j) => {
+        const meta = categoryMeta(j.category);
+        const lng = j.location_lng!;
+        const lat = j.location_lat!;
+        const sourceId = `job-circle-${j.id}`;
+        const points = 64;
+        const radiusKm = 0.5;
+        const coords: [number, number][] = [];
+        const distanceX = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+        const distanceY = radiusKm / 110.574;
+        for (let i = 0; i < points; i++) {
+          const theta = (i / points) * (2 * Math.PI);
+          coords.push([lng + distanceX * Math.cos(theta), lat + distanceY * Math.sin(theta)]);
+        }
+        coords.push(coords[0]);
+        map.addSource(sourceId, {
+          type: "geojson",
+          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [coords] } },
+        });
+        map.addLayer({ id: sourceId, type: "fill", source: sourceId, paint: { "fill-color": meta.color, "fill-opacity": 0.15 } });
+        map.addLayer({ id: sourceId + "-stroke", type: "line", source: sourceId, paint: { "line-color": meta.color, "line-width": 2 } });
+        circleSourcesRef.current.push(sourceId);
+
+        const popupHtml = `
+          <div style="font-family: inherit; min-width: 180px;">
+            <p style="font-weight: 800; margin: 0;">${j.title.replace(/</g, "&lt;")}</p>
+            <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">$${Number(j.budget).toFixed(0)} · ${meta.label}</p>
+            <p style="font-size: 11px; font-style: italic; color: #6b7280; margin: 4px 0 0;">Approximate area — exact address shared after acceptance</p>
+            <a href="/jobs/${j.id}" style="display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700; color: hsl(var(--primary)); text-decoration: underline;">View & request →</a>
+          </div>`;
+        const marker = new mapboxgl.Marker({ element: categoryMarkerEl(j.category) })
+          .setLngLat([lng, lat])
+          .setPopup(new mapboxgl.Popup({ offset: 18 }).setHTML(popupHtml))
+          .addTo(map);
+        markersRef.current.push(marker);
+      });
+    };
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+  }, [jobs, mapboxToken, mapTab]);
+
+  // Geocoding search (Glen Ellyn-focused)
+  useEffect(() => {
+    if (!mapboxToken || searchQuery.trim().length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+          searchQuery
+        )}.json?access_token=${mapboxToken}&proximity=${GLEN_ELLYN[0]},${GLEN_ELLYN[1]}&bbox=-88.15,41.83,-87.99,41.92&limit=5&country=US`;
+        const res = await fetch(url);
+        const json = await res.json();
+        setSearchResults(
+          (json.features ?? []).map((f: any) => ({ id: f.id, place_name: f.place_name, center: f.center }))
+        );
+      } catch (e) {
+        console.error("Geocoding failed", e);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery, mapboxToken]);
+
+  const flyToResult = (center: [number, number], place_name: string) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({ center, zoom: 16, essential: true });
+    new mapboxgl.Popup({ offset: 12 })
+      .setLngLat(center)
+      .setHTML(`<div style="font-family: inherit; font-size: 12px;">${place_name}</div>`)
+      .addTo(map);
+    setSearchResults([]);
+    setSearchQuery(place_name);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -97,7 +233,7 @@ export default function Feed() {
           </p>
         </div>
 
-        <Tabs defaultValue="list">
+        <Tabs value={mapTab} onValueChange={setMapTab}>
           <TabsList className="rounded-2xl">
             <TabsTrigger value="list" className="rounded-xl">List</TabsTrigger>
             <TabsTrigger value="map" className="rounded-xl">Map</TabsTrigger>
@@ -168,35 +304,49 @@ export default function Feed() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-6">
-            <div className="h-[600px] overflow-hidden rounded-3xl border border-border shadow-card">
-              <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Glen Ellyn addresses or places…"
+                  className="h-12 rounded-2xl pl-11"
+                  disabled={!mapboxToken}
                 />
-                {jobs.filter((j) => j.location_lat && j.location_lng).map((j) => {
-                  const meta = categoryMeta(j.category);
-                  return (
-                    <div key={j.id}>
-                      <Circle
-                        center={[j.location_lat!, j.location_lng!]}
-                        radius={500}
-                        pathOptions={{ color: meta.color, fillColor: meta.color, fillOpacity: 0.15, weight: 2 }}
-                      />
-                      <Marker position={[j.location_lat!, j.location_lng!]} icon={buildIcon(j.category)}>
-                        <Popup>
-                          <div className="font-sans">
-                            <p className="font-extrabold">{j.title}</p>
-                            <p className="text-xs text-muted-foreground">${Number(j.budget).toFixed(0)} · {meta.label}</p>
-                            <p className="mt-1 text-[11px] italic text-muted-foreground">Approximate area — exact address shared after acceptance</p>
-                            <Link to={`/jobs/${j.id}`} className="mt-2 inline-block text-xs font-bold text-primary underline">View & request →</Link>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </div>
-                  );
-                })}
-              </MapContainer>
+              </div>
+              {searchResults.length > 0 && (
+                <div className="absolute z-[1000] mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
+                  {searchResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => flyToResult(r.center, r.place_name)}
+                      className="flex w-full items-start gap-2 px-4 py-3 text-left text-sm transition-smooth hover:bg-muted"
+                    >
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span>{r.place_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {searching && searchResults.length === 0 && searchQuery.length >= 3 && (
+                <p className="absolute mt-2 text-xs text-muted-foreground">Searching…</p>
+              )}
+            </div>
+
+            <div className="relative h-[600px] overflow-hidden rounded-3xl border border-border shadow-card">
+              {mapboxError ? (
+                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  {mapboxError}
+                </div>
+              ) : !mapboxToken ? (
+                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  Loading map…
+                </div>
+              ) : null}
+              <div ref={mapContainerRef} className="absolute inset-0" />
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" /> For privacy, jobs show a ~500m neighborhood circle — never an exact address.
