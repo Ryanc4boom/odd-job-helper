@@ -102,14 +102,14 @@ export default function Account() {
 
       const { data: posted } = await supabase
         .from("jobs")
-        .select("id, title, status, budget, scheduled_for, schedule_window, category")
+        .select("id, title, status, budget, expires_at, category")
         .eq("poster_id", user.id)
         .order("created_at", { ascending: false });
       setPostedJobs(posted ?? []);
 
       const { data: reqs } = await supabase
         .from("job_requests")
-        .select("status, jobs:job_id(id, title, status, budget, scheduled_for, schedule_window, category)")
+        .select("status, jobs:job_id(id, title, status, budget, expires_at, category)")
         .eq("doer_id", user.id)
         .order("created_at", { ascending: false });
       setAcceptedJobs((reqs ?? []).filter((r: any) => r.jobs).map((r: any) => ({ ...r.jobs, request_status: r.status })));
