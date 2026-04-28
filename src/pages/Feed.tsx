@@ -46,34 +46,61 @@ export default function Feed() {
     if (!authLoading && !user) navigate("/auth");
   }, [authLoading, user, navigate]);
 
+  const fetchJobs = async () => {
+    // Use the public view that hides exact coordinates and address
+    const { data, error } = await supabase
+      .from("jobs_public" as any)
+      .select("*")
+      .eq("status", "open")
+      .order("created_at", { ascending: false });
+    if (error) console.error(error);
+    const list = (data as any as Job[]) ?? [];
+    setJobs(list);
+    setLoading(false);
+
+    if (list.length === 0) {
+      toast("No jobs in Glen Ellyn yet—be the first!");
+    }
+
+    const posterIds = Array.from(new Set(list.map((j) => j.poster_id).filter(Boolean)));
+    if (posterIds.length > 0) {
+      const { data: ratings } = await supabase
+        .from("ratings")
+        .select("ratee_id, score")
+        .in("ratee_id", posterIds);
+      const agg: Record<string, { sum: number; count: number }> = {};
+      (ratings ?? []).forEach((r: any) => {
+        const key = r.ratee_id as string;
+        if (!agg[key]) agg[key] = { sum: 0, count: 0 };
+        agg[key].sum += Number(r.score);
+        agg[key].count += 1;
+      });
+      const out: Record<string, { avg: number; count: number }> = {};
+      Object.entries(agg).forEach(([k, v]) => { out[k] = { avg: v.sum / v.count, count: v.count }; });
+      setPosterRatings(out);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    // Use the public view that hides exact coordinates and address
-    supabase.from("jobs_public" as any).select("*").eq("status", "open").order("created_at", { ascending: false })
-      .then(async ({ data, error }) => {
-        if (error) console.error(error);
-        const list = (data as any as Job[]) ?? [];
-        setJobs(list);
-        setLoading(false);
+    fetchJobs();
 
-        const posterIds = Array.from(new Set(list.map((j) => j.poster_id).filter(Boolean)));
-        if (posterIds.length > 0) {
-          const { data: ratings } = await supabase
-            .from("ratings")
-            .select("ratee_id, score")
-            .in("ratee_id", posterIds);
-          const agg: Record<string, { sum: number; count: number }> = {};
-          (ratings ?? []).forEach((r: any) => {
-            const key = r.ratee_id as string;
-            if (!agg[key]) agg[key] = { sum: 0, count: 0 };
-            agg[key].sum += Number(r.score);
-            agg[key].count += 1;
-          });
-          const out: Record<string, { avg: number; count: number }> = {};
-          Object.entries(agg).forEach(([k, v]) => { out[k] = { avg: v.sum / v.count, count: v.count }; });
-          setPosterRatings(out);
+    // Realtime: refresh when any job is inserted/updated/deleted so privacy bubbles update live.
+    const channel = supabase
+      .channel("jobs-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "jobs" },
+        () => {
+          fetchJobs();
         }
-      });
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Mapbox state
