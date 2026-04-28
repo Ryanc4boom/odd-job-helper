@@ -369,9 +369,16 @@ export default function JobDetail() {
           <p className="mt-5 whitespace-pre-wrap text-[15px] text-foreground/90">{job.description}</p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold", scheduleBadgeStyle(job.schedule_window))}>
-              <Clock className="h-3.5 w-3.5" />{formatSchedule(job.scheduled_for, job.schedule_window)}
-            </span>
+            {job.expires_at && job.status === "open" && (
+              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold", countdownBadgeClass(expirationLevel(job.expires_at)))}>
+                <Clock className="h-3.5 w-3.5" />Listing expires in {formatTimeRemaining(job.expires_at)}
+              </span>
+            )}
+            {job.status === "expired" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-bold text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />Listing expired
+              </span>
+            )}
             {job.location_text && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm">
                 <MapPin className="h-3.5 w-3.5" />{job.location_text}
