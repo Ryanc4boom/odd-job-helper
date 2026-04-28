@@ -24,7 +24,7 @@ import StarRating from "@/components/StarRating";
 import { toast } from "sonner";
 import { ShieldCheck, BadgeCheck, Camera, FileUp, LogOut, Briefcase, Hammer, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
+import { formatTimeRemaining, expirationLevel, countdownBadgeClass } from "@/lib/expiration";
 import { categoryMeta } from "@/lib/categories";
 
 type Profile = {
