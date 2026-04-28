@@ -2,7 +2,7 @@ export type trust_grade = "A" | "B" | "C" | "D" | "F";
 
 export type ScheduleWindow = "now" | "urgent" | "window";
 
-export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed";
+export type JobStatus = "open" | "in_progress" | "completed" | "cancelled" | "disputed" | "expired";
 
 export type Environment = "indoor" | "outdoor" | "both";
 
