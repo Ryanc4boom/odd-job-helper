@@ -14,22 +14,25 @@ import type { Job } from "@/lib/types";
 import { formatSchedule, scheduleBadgeStyle } from "@/lib/schedule";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { renderToStaticMarkup } from "react-dom/server";
 import { MapPin, DollarSign, Plus, Clock, Lock, Search } from "lucide-react";
 import ProBadge from "@/components/ProBadge";
 import StarRating from "@/components/StarRating";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const GLEN_ELLYN: [number, number] = [-88.0678, 41.8775]; // [lng, lat] for Mapbox
+const JOBS_SOURCE_ID = "jobs-source";
+const CLUSTER_RADIUS_LAYER = "jobs-cluster-radius";
+const CLUSTER_STROKE_LAYER = "jobs-cluster-stroke";
+const SINGLE_RADIUS_LAYER = "jobs-single-radius";
+const SINGLE_STROKE_LAYER = "jobs-single-stroke";
 
-function categoryMarkerEl(category: JobCategory) {
-  const meta = categoryMeta(category);
-  const Icon = meta.icon;
-  const el = document.createElement("div");
-  el.className = "job-pin";
-  el.style.background = meta.color;
-  el.innerHTML = renderToStaticMarkup(<Icon size={18} strokeWidth={2.5} />);
-  return el;
+// Convert meters to pixel radius at a given latitude/zoom for circle layer rendering.
+// Mapbox circle layer takes a pixel radius, so we convert from meters using the
+// Web Mercator scale at the layer's latitude. We use an interpolated expression
+// so circles stay ~constant in real-world meters as the user zooms.
+function metersToPixelsAtMaxZoom(meters: number, latitude: number) {
+  return meters / 0.075 / Math.cos((latitude * Math.PI) / 180);
 }
 
 export default function Feed() {
@@ -43,34 +46,61 @@ export default function Feed() {
     if (!authLoading && !user) navigate("/auth");
   }, [authLoading, user, navigate]);
 
+  const fetchJobs = async () => {
+    // Use the public view that hides exact coordinates and address
+    const { data, error } = await supabase
+      .from("jobs_public" as any)
+      .select("*")
+      .eq("status", "open")
+      .order("created_at", { ascending: false });
+    if (error) console.error(error);
+    const list = (data as any as Job[]) ?? [];
+    setJobs(list);
+    setLoading(false);
+
+    if (list.length === 0) {
+      toast("No jobs in Glen Ellyn yet—be the first!");
+    }
+
+    const posterIds = Array.from(new Set(list.map((j) => j.poster_id).filter(Boolean)));
+    if (posterIds.length > 0) {
+      const { data: ratings } = await supabase
+        .from("ratings")
+        .select("ratee_id, score")
+        .in("ratee_id", posterIds);
+      const agg: Record<string, { sum: number; count: number }> = {};
+      (ratings ?? []).forEach((r: any) => {
+        const key = r.ratee_id as string;
+        if (!agg[key]) agg[key] = { sum: 0, count: 0 };
+        agg[key].sum += Number(r.score);
+        agg[key].count += 1;
+      });
+      const out: Record<string, { avg: number; count: number }> = {};
+      Object.entries(agg).forEach(([k, v]) => { out[k] = { avg: v.sum / v.count, count: v.count }; });
+      setPosterRatings(out);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    // Use the public view that hides exact coordinates and address
-    supabase.from("jobs_public" as any).select("*").eq("status", "open").order("created_at", { ascending: false })
-      .then(async ({ data, error }) => {
-        if (error) console.error(error);
-        const list = (data as any as Job[]) ?? [];
-        setJobs(list);
-        setLoading(false);
+    fetchJobs();
 
-        const posterIds = Array.from(new Set(list.map((j) => j.poster_id).filter(Boolean)));
-        if (posterIds.length > 0) {
-          const { data: ratings } = await supabase
-            .from("ratings")
-            .select("ratee_id, score")
-            .in("ratee_id", posterIds);
-          const agg: Record<string, { sum: number; count: number }> = {};
-          (ratings ?? []).forEach((r: any) => {
-            const key = r.ratee_id as string;
-            if (!agg[key]) agg[key] = { sum: 0, count: 0 };
-            agg[key].sum += Number(r.score);
-            agg[key].count += 1;
-          });
-          const out: Record<string, { avg: number; count: number }> = {};
-          Object.entries(agg).forEach(([k, v]) => { out[k] = { avg: v.sum / v.count, count: v.count }; });
-          setPosterRatings(out);
+    // Realtime: refresh when any job is inserted/updated/deleted so privacy bubbles update live.
+    const channel = supabase
+      .channel("jobs-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "jobs" },
+        () => {
+          fetchJobs();
         }
-      });
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Mapbox state
@@ -155,57 +185,184 @@ export default function Feed() {
     return () => clearTimeout(t);
   }, [mapTab]);
 
-  // Add/refresh markers + privacy circles whenever jobs or map change
+  // Build a clustered GeoJSON source of all open jobs and render privacy bubbles.
+  // - Single jobs: 200m semi-transparent green circle
+  // - Clusters:    300m circle (slightly larger to indicate multiple jobs)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapboxToken) return;
+
+    const featureCollection = {
+      type: "FeatureCollection" as const,
+      features: jobs
+        .filter((j) => j.location_lat != null && j.location_lng != null)
+        .map((j) => ({
+          type: "Feature" as const,
+          properties: {
+            id: j.id,
+            title: j.title,
+            budget: Number(j.budget),
+            category: j.category,
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [j.location_lng!, j.location_lat!],
+          },
+        })),
+    };
+
     const apply = () => {
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-      circleSourcesRef.current.forEach((id) => {
-        if (map.getLayer(id)) map.removeLayer(id);
-        if (map.getLayer(id + "-stroke")) map.removeLayer(id + "-stroke");
-        if (map.getSource(id)) map.removeSource(id);
+      // Update or create source with clustering enabled
+      const existing = map.getSource(JOBS_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+      if (existing) {
+        existing.setData(featureCollection as any);
+        return;
+      }
+
+      map.addSource(JOBS_SOURCE_ID, {
+        type: "geojson",
+        data: featureCollection as any,
+        cluster: true,
+        clusterRadius: 50,
+        clusterMaxZoom: 16,
       });
-      circleSourcesRef.current = [];
 
-      jobs.filter((j) => j.location_lat && j.location_lng).forEach((j) => {
-        const meta = categoryMeta(j.category);
-        const lng = j.location_lng!;
-        const lat = j.location_lat!;
-        const sourceId = `job-circle-${j.id}`;
-        const points = 64;
-        const radiusKm = 0.5;
-        const coords: [number, number][] = [];
-        const distanceX = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
-        const distanceY = radiusKm / 110.574;
-        for (let i = 0; i < points; i++) {
-          const theta = (i / points) * (2 * Math.PI);
-          coords.push([lng + distanceX * Math.cos(theta), lat + distanceY * Math.sin(theta)]);
-        }
-        coords.push(coords[0]);
-        map.addSource(sourceId, {
-          type: "geojson",
-          data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [coords] } },
-        });
-        map.addLayer({ id: sourceId, type: "fill", source: sourceId, paint: { "fill-color": meta.color, "fill-opacity": 0.15 } });
-        map.addLayer({ id: sourceId + "-stroke", type: "line", source: sourceId, paint: { "line-color": meta.color, "line-width": 2 } });
-        circleSourcesRef.current.push(sourceId);
+      const meterRadiusSingle = 200;
+      const meterRadiusCluster = 300;
+      const lat = GLEN_ELLYN[1];
+      const pxSingle = metersToPixelsAtMaxZoom(meterRadiusSingle, lat);
+      const pxCluster = metersToPixelsAtMaxZoom(meterRadiusCluster, lat);
 
-        const popupHtml = `
-          <div style="font-family: inherit; min-width: 180px;">
-            <p style="font-weight: 800; margin: 0;">${j.title.replace(/</g, "&lt;")}</p>
-            <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">$${Number(j.budget).toFixed(0)} · ${meta.label}</p>
-            <p style="font-size: 11px; font-style: italic; color: #6b7280; margin: 4px 0 0;">Approximate area — exact address shared after acceptance</p>
-            <a href="/jobs/${j.id}" style="display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700; color: hsl(var(--primary)); text-decoration: underline;">View & request →</a>
+      // Cluster bubbles (point_count > 1)
+      map.addLayer({
+        id: CLUSTER_RADIUS_LAYER,
+        type: "circle",
+        source: JOBS_SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": "#22c55e",
+          "circle-opacity": 0.3,
+          "circle-radius": [
+            "interpolate", ["exponential", 2], ["zoom"],
+            0, 0,
+            22, pxCluster,
+          ],
+        },
+      });
+      map.addLayer({
+        id: CLUSTER_STROKE_LAYER,
+        type: "circle",
+        source: JOBS_SOURCE_ID,
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": "#22c55e",
+          "circle-stroke-width": 2,
+          "circle-radius": [
+            "interpolate", ["exponential", 2], ["zoom"],
+            0, 0,
+            22, pxCluster,
+          ],
+        },
+      });
+
+      // Single-job bubbles
+      map.addLayer({
+        id: SINGLE_RADIUS_LAYER,
+        type: "circle",
+        source: JOBS_SOURCE_ID,
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": "#22c55e",
+          "circle-opacity": 0.3,
+          "circle-radius": [
+            "interpolate", ["exponential", 2], ["zoom"],
+            0, 0,
+            22, pxSingle,
+          ],
+        },
+      });
+      map.addLayer({
+        id: SINGLE_STROKE_LAYER,
+        type: "circle",
+        source: JOBS_SOURCE_ID,
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": "#22c55e",
+          "circle-stroke-width": 2,
+          "circle-radius": [
+            "interpolate", ["exponential", 2], ["zoom"],
+            0, 0,
+            22, pxSingle,
+          ],
+        },
+      });
+
+      const cursorIn = () => (map.getCanvas().style.cursor = "pointer");
+      const cursorOut = () => (map.getCanvas().style.cursor = "");
+      [SINGLE_RADIUS_LAYER, CLUSTER_RADIUS_LAYER].forEach((layerId) => {
+        map.on("mouseenter", layerId, cursorIn);
+        map.on("mouseleave", layerId, cursorOut);
+      });
+
+      // Single-job popup
+      map.on("click", SINGLE_RADIUS_LAYER, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const props = feature.properties as { id: string; title: string; budget: number };
+        const coords = (feature.geometry as any).coordinates.slice() as [number, number];
+        const html = `
+          <div style="font-family: inherit; min-width: 200px;">
+            <p style="font-weight: 800; margin: 0; font-size: 14px;">${String(props.title).replace(/</g, "&lt;")}</p>
+            <p style="font-size: 13px; color: #16a34a; font-weight: 700; margin: 4px 0 0;">$${Number(props.budget).toFixed(0)}</p>
+            <p style="font-size: 11px; font-style: italic; color: #6b7280; margin: 6px 0 0;">Approximate area — exact address shared after acceptance</p>
+            <a href="/jobs/${props.id}" style="display: inline-block; margin-top: 10px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: white; background: #22c55e; border-radius: 8px; text-decoration: none;">View Details →</a>
           </div>`;
-        const marker = new mapboxgl.Marker({ element: categoryMarkerEl(j.category) })
-          .setLngLat([lng, lat])
-          .setPopup(new mapboxgl.Popup({ offset: 18 }).setHTML(popupHtml))
-          .addTo(map);
-        markersRef.current.push(marker);
+        new mapboxgl.Popup({ offset: 12 }).setLngLat(coords).setHTML(html).addTo(map);
+      });
+
+      // Cluster popup — shows multi-job list (truncated past 3)
+      map.on("click", CLUSTER_RADIUS_LAYER, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const clusterId = feature.properties?.cluster_id;
+        const pointCount = Number(feature.properties?.point_count ?? 0);
+        const coords = (feature.geometry as any).coordinates.slice() as [number, number];
+        const source = map.getSource(JOBS_SOURCE_ID) as mapboxgl.GeoJSONSource;
+        source.getClusterLeaves(clusterId, pointCount, 0, (err, leaves) => {
+          if (err || !leaves) return;
+          const items = leaves.map((l: any) => l.properties as { id: string; title: string; budget: number });
+          const visible = items.slice(0, 3);
+          const remaining = items.length - visible.length;
+
+          const rows = visible
+            .map(
+              (it) => `
+                <a href="/jobs/${it.id}" style="display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; text-decoration: none; color: inherit;">
+                  <span style="font-weight: 700; font-size: 13px; color: #0f172a;">${String(it.title).replace(/</g, "&lt;")}</span>
+                  <span style="font-weight: 700; font-size: 13px; color: #16a34a;">$${Number(it.budget).toFixed(0)}</span>
+                </a>`
+            )
+            .join("");
+
+          const moreLine =
+            remaining > 0
+              ? `<p style="margin: 8px 0 0; font-size: 12px; font-weight: 600; color: #16a34a;">+ ${remaining} more job${remaining === 1 ? "" : "s"}. Click circle to zoom in.</p>`
+              : "";
+
+          const html = `
+            <div style="font-family: inherit; min-width: 240px;">
+              <p style="font-weight: 800; margin: 0 0 6px; font-size: 13px; color: #16a34a;">${items.length} jobs in this area</p>
+              ${rows}
+              ${moreLine}
+              <p style="font-size: 11px; font-style: italic; color: #6b7280; margin: 8px 0 0;">Exact addresses hidden for privacy</p>
+            </div>`;
+          new mapboxgl.Popup({ offset: 12, maxWidth: "320px" }).setLngLat(coords).setHTML(html).addTo(map);
+        });
       });
     };
+
     if (map.isStyleLoaded()) apply();
     else map.once("load", apply);
   }, [jobs, mapboxToken, mapTab]);
