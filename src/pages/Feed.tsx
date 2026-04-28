@@ -48,13 +48,12 @@ export default function Feed() {
 
   const fetchJobs = async () => {
     // Use the public view that hides exact coordinates and address.
-    // Defense-in-depth: also exclude jobs whose listing timer has already passed
-    // (the cron job runs every 5 min, so we don't want a stale window between expiration and cleanup).
+    // The view itself filters out expired jobs server-side
+    // (status <> 'expired' AND (expires_at IS NULL OR expires_at > now())).
     const { data, error } = await supabase
       .from("jobs_public" as any)
       .select("*")
       .eq("status", "open")
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("created_at", { ascending: false });
     if (error) console.error(error);
     const list = (data as any as Job[]) ?? [];
