@@ -106,17 +106,13 @@ export default function PostJob() {
     }
   };
 
-  const preset: SchedulePreset = SCHEDULE_PRESETS[presetIdx];
-  const isCustom = preset.kind === "custom";
-  const showWindowToggle = preset.kind === "tomorrow" || preset.kind === "custom";
-
-  const customCombined = useMemo(() => {
-    if (!customDate) return undefined;
-    const [h, m] = customHour.split(":").map(Number);
-    const d = new Date(customDate);
-    d.setHours(h || 9, m || 0, 0, 0);
-    return d;
-  }, [customDate, customHour]);
+  // Resolve the chosen listing duration (preset or custom). Returns null if invalid.
+  const resolveDurationHours = (): number | null => {
+    if (!useCustomDuration) return durationHours;
+    const n = Number(customHours);
+    if (!Number.isFinite(n) || n < MIN_CUSTOM_HOURS || n > MAX_CUSTOM_HOURS) return null;
+    return n;
+  };
 
   if (!authLoading && !user) {
     navigate("/auth");
@@ -131,12 +127,12 @@ export default function PostJob() {
       return;
     }
 
-    const { date, window } = presetToDate(preset, customCombined);
-    if (!date) { toast.error("Pick a date for your custom schedule"); return; }
-    if (date.getTime() > maxCustomDate().getTime() + 24 * 3600_000) {
-      toast.error("Custom dates can be at most 3 days out"); return;
+    const hours = resolveDurationHours();
+    if (hours == null) {
+      toast.error(`Listing timer must be between ${MIN_CUSTOM_HOURS} and ${MAX_CUSTOM_HOURS} hours`);
+      return;
     }
-    const finalWindow = showWindowToggle ? windowOverride : window;
+    const expiresAt = new Date(Date.now() + hours * 3600_000);
 
     setSubmitting(true);
     try {
@@ -165,8 +161,7 @@ export default function PostJob() {
         exact_lng: exact.lng,
         location_lat: fuzzed.lat,
         location_lng: fuzzed.lng,
-        scheduled_for: date.toISOString(),
-        schedule_window: finalWindow,
+        expires_at: expiresAt.toISOString(),
         tools_provided: toolsProvided,
         heavy_lifting: heavyLifting,
         environment,
@@ -174,7 +169,7 @@ export default function PostJob() {
         pro_only: proOnly,
       });
       if (insErr) throw insErr;
-      toast.success("Job posted! Neighbors can see it now.");
+      toast.success(`Job posted! It'll stay live for ${formatTimeRemaining(expiresAt.toISOString())}.`);
       navigate("/feed");
     } catch (err: any) {
       toast.error(err.message ?? "Could not post job");
