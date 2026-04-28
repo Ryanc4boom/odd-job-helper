@@ -76,6 +76,12 @@ export default function PostJob() {
     if (user) refreshMyJobs(user.id);
   }, [user]);
 
+  useEffect(() => {
+    supabase.functions.invoke("get-mapbox-token").then(({ data, error }) => {
+      if (!error && data?.token) setMapboxToken(data.token);
+    });
+  }, []);
+
   const confirmCancel = async () => {
     if (!cancelTarget || !user) return;
     setCancelling(true);
